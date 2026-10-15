@@ -720,7 +720,7 @@ elif page.startswith('📑'):
         gauge_upcoming = int((gauge_data['Situação'] == 'A vencer').sum())
         gauge_current = gauge_total - gauge_expired
         gauge_pct = 100.0 * gauge_current / gauge_total if gauge_total else 0.0
-        gauge_color = '#16A34A' if gauge_pct == 100 else ('#E8B247' if gauge_pct >= 80 else '#DF4A59')
+        # Verde = licenças em dia; vermelho = licenças vencidas.
 
         st.subheader('Regularidade das licenças')
         st.caption('Percentual de licenças ativas dentro do prazo, considerando as filiais selecionadas. Licenças a vencer em até 30 dias ainda estão em dia.')
@@ -733,10 +733,13 @@ elif page.startswith('📑'):
                 gauge={
                     'shape': 'angular',
                     'axis': {'range': [0, 100], 'visible': False},
-                    'bar': {'color': gauge_color, 'thickness': 0.33},
+                    'bar': {'color': 'rgba(0,0,0,0)', 'thickness': 0},
                     'bgcolor': '#E9EDF5',
                     'borderwidth': 0,
-                    'steps': [{'range': [0, 100], 'color': '#E9EDF5'}],
+                    'steps': [
+                        {'range': [0, gauge_pct], 'color': '#16A34A'},
+                        {'range': [gauge_pct, 100], 'color': '#DF4A59'},
+                    ],
                 },
                 domain={'x': [0, 1], 'y': [0, 1]},
             ))
@@ -746,11 +749,25 @@ elif page.startswith('📑'):
                 font={'color': '#18243C'},
             )
             st.plotly_chart(gauge, use_container_width=True, config={'displayModeBar': False})
+            st.markdown(
+                '<div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;'
+                'font-size:13px;font-weight:600;color:#18243C;margin-top:-10px;margin-bottom:10px">'
+                '<span><span style="color:#16A34A">●</span> Em dia</span>'
+                '<span><span style="color:#DF4A59">●</span> Vencidas</span></div>',
+                unsafe_allow_html=True,
+            )
         with info_col:
             st.metric('Licenças em dia', f'{gauge_current} de {gauge_total}')
             st.metric('Licenças vencidas', gauge_expired)
             if gauge_upcoming:
-                st.warning(f'⚠️ {gauge_upcoming} licença(s) vencem nos próximos 30 dias.')
+                plural = 'licença vence' if gauge_upcoming == 1 else 'licenças vencem'
+                st.markdown(
+                    '<div role="alert" style="background:#FFF3CD;color:#663C00;'
+                    'border:1px solid #E9CE80;border-radius:9px;padding:13px 15px;'
+                    'font-weight:650;font-size:14px;line-height:1.5">'
+                    f'⚠️ Atenção: {gauge_upcoming} {plural} nos próximos 30 dias.'
+                    '</div>', unsafe_allow_html=True,
+                )
             elif gauge_total:
                 st.success('Nenhuma licença com vencimento nos próximos 30 dias.')
             else:
