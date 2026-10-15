@@ -99,30 +99,59 @@ def init_db():
             ]
         )
 
-        # Criar o administrador inicial
-        if not c.execute(
-            'SELECT 1 FROM users LIMIT 1'
-        ).fetchone():
 
-            pw = (
-                os.environ.get('TLOG_ADMIN_PASSWORD')
-                or secrets.token_urlsafe(12)
-            )
+        # Criar administrador inicial ou recuperar acesso
+        admin_password = st.secrets.get(
+            "TLOG_ADMIN_PASSWORD", None
+        )
+
+        admin = c.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("admin",)
+        ).fetchone()
+
+        if admin is None:
+            if admin_password:
+                pw = admin_password
+            else:
+                pw = secrets.token_urlsafe(16)
 
             c.execute(
-                '''
-                INSERT INTO users(name,username,password,role)
-                VALUES(?,?,?,?)
-                ''',
+                """
+                INSERT INTO users
+                (name, username, password, role, active)
+                VALUES (?, ?, ?, ?, ?)
+                """,
                 (
-                    'Administrador',
-                    'admin',
+                    "Administrador",
+                    "admin",
                     hash_pw(pw),
-                    'admin'
+                    "admin",
+                    1
                 )
             )
 
-            st.session_state['initial_password'] = pw
+            if not admin_password:
+                st.session_state["initial_password"] = pw
+
+        elif (
+            admin_password
+            and st.secrets.get(
+                "TLOG_RESET_ADMIN_PASSWORD", False
+            )
+        ):
+            c.execute(
+                """
+                UPDATE users
+                SET password = ?, role = ?, active = 1
+                WHERE username = ?
+                """,
+                (
+                    hash_pw(admin_password),
+                    "admin",
+                    "admin"
+                )
+            )
 
 def q(sql,args=()):
     with connect() as c:return pd.read_sql_query(sql,c,params=args)
