@@ -533,18 +533,22 @@ if page.startswith('📊'):
                     fig.update_traces(mode='lines+markers+text',
                                       texttemplate='%{y}', textposition='top center',
                                       line=dict(width=3), marker=dict(size=9))
-                    fig.update_layout(xaxis_title='Mês de referência',
+                    fig.update_layout(template='plotly_white', xaxis_title='Mês de referência',
                                       yaxis_title='Quantidade de atividades',
                                       legend_title_text='', height=350,
-                                      margin=dict(t=28, b=45, l=50, r=10),
-                                      font_color='#18243C',
+                                      margin=dict(t=65, b=75, l=90, r=20),
+                                      font=dict(family='Arial, sans-serif', size=12, color='#18243C'),
                                       paper_bgcolor='rgba(0,0,0,0)',
                                       plot_bgcolor='rgba(0,0,0,0)',
-                                      legend=dict(orientation='h', y=1.18, x=0))
+                                      legend=dict(orientation='h', y=1.12, x=0, font=dict(color='#18243C', size=12), bgcolor='rgba(0,0,0,0)'))
                     fig.update_yaxes(rangemode='tozero', dtick=1, showgrid=True,
-                                     gridcolor='#D9DFEA', zeroline=False)
+                                     gridcolor='#D9DFEA', zeroline=False,
+                                     title_font=dict(color='#18243C', size=14),
+                                     tickfont=dict(color='#18243C', size=12))
                     fig.update_xaxes(showgrid=True, gridcolor='#E8ECF3',
-                                     type='category')
+                                     type='category',
+                                      title_font=dict(color='#18243C', size=14),
+                                      tickfont=dict(color='#18243C', size=12))
                     st.plotly_chart(fig, use_container_width=True)
             elif view.empty:
                 st.info('Nenhuma atividade corresponde aos filtros.')
@@ -560,19 +564,23 @@ if page.startswith('📊'):
                              color_discrete_map=cores)
                 fig.update_traces(textposition='outside', textfont_size=12,
                                   cliponaxis=False)
-                fig.update_layout(xaxis_title=field,
+                fig.update_layout(template='plotly_white', xaxis_title=field,
                                   yaxis_title='Quantidade de atividades',
                                   legend_title_text='', height=350,
-                                  margin=dict(t=28, b=65, l=50, r=10),
-                                  font_color='#18243C',
+                                  margin=dict(t=65, b=105, l=90, r=20),
+                                  font=dict(family='Arial, sans-serif', size=12, color='#18243C'),
                                   paper_bgcolor='rgba(0,0,0,0)',
                                   plot_bgcolor='rgba(0,0,0,0)',
-                                  legend=dict(orientation='h', y=1.18, x=0),
+                                  legend=dict(orientation='h', y=1.12, x=0, font=dict(color='#18243C', size=12), bgcolor='rgba(0,0,0,0)'),
                                   bargap=0.25, bargroupgap=0.08)
                 fig.update_yaxes(rangemode='tozero', dtick=1, showgrid=True,
-                                 gridcolor='#D9DFEA', zeroline=False)
+                                 gridcolor='#D9DFEA', zeroline=False,
+                                 title_font=dict(color='#18243C', size=14),
+                                 tickfont=dict(color='#18243C', size=12))
                 fig.update_xaxes(showgrid=False, tickangle=-20,
-                                 automargin=True)
+                                 automargin=True,
+                                 title_font=dict(color='#18243C', size=14),
+                                 tickfont=dict(color='#18243C', size=12))
                 st.plotly_chart(fig, use_container_width=True)
         with right:
             st.subheader('Agenda de vencimentos')
