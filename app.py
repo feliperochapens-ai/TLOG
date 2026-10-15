@@ -330,40 +330,128 @@ if page.startswith('📊') or page.startswith('☑️') or page.startswith('📋
     if not df.empty:df['Situação']=df.apply(status_label,axis=1)
 
 if page.startswith('📊'):
-    if df.empty:st.info('Nenhuma atividade cadastrada para este mês.');st.stop()
-    a,b,c=st.columns([2,2,2])
-    with a: seg=st.multiselect('Segmentação',sorted(df['Segmentação'].unique()))
-    with b: people=st.multiselect('Responsável',sorted(df['Responsável'].unique()))
-    with c: statuses=st.multiselect('Situação',sorted(df['Situação'].unique()))
-    view=df.copy()
-    if seg:view=view[view['Segmentação'].isin(seg)]
-    if people:view=view[view['Responsável'].isin(people)]
-    if statuses:view=view[view['Situação'].isin(statuses)]
-    counts=view['Situação'].value_counts();total=len(view);done=int(counts.get('Concluída',0)+counts.get('Aprovada',0));pending=int(counts.get('Pendente',0)+counts.get('Aguardando aprovação',0));late=int(counts.get('Atrasada',0))
-    cols=st.columns(4)
-    for col,(label,value,color) in zip(cols,[('Atividades previstas',total,'#3766d6'),('Concluídas / aprovadas',done,'#159d6d'),('Pendentes / em aprovação',pending,'#dfa224'),('Atrasadas',late,'#df4a59')]):
-        col.markdown(f'<div class="metric" style="--accent:{color}"><div class="label">{label}</div><div class="value">{value}</div></div>',unsafe_allow_html=True)
-    st.write('');st.progress(done/total if total else 0,text=f'Progresso de conclusão: {done}/{total} ({done/total:.0%})' if total else 'Sem atividades')
-    left,right=st.columns(2)
+    if df.empty:
+        st.info('Nenhuma atividade cadastrada para este mês.')
+        st.stop()
+
+    filtro1, filtro2, filtro3 = st.columns(3)
+    with filtro1:
+        seg = st.multiselect('Segmentação', sorted(df['Segmentação'].dropna().unique()))
+    with filtro2:
+        people = st.multiselect('Responsável', sorted(df['Responsável'].dropna().unique()))
+    with filtro3:
+        statuses = st.multiselect('Situação', sorted(df['Situação'].dropna().unique()))
+
+    view = df.copy()
+    if seg:
+        view = view[view['Segmentação'].isin(seg)]
+    if people:
+        view = view[view['Responsável'].isin(people)]
+    if statuses:
+        view = view[view['Situação'].isin(statuses)]
+
+    counts = view['Situação'].value_counts()
+    total = len(view)
+    done = int(counts.get('Concluída', 0) + counts.get('Aprovada', 0))
+    pending = int(counts.get('Pendente', 0) + counts.get('Aguardando aprovação', 0))
+    late = int(counts.get('Atrasada', 0))
+    cards = st.columns(4)
+    for col, (label, value, color) in zip(cards, [
+        ('Atividades previstas', total, '#3766d6'),
+        ('Concluídas / aprovadas', done, '#159d6d'),
+        ('Pendentes / em aprovação', pending, '#dfa224'),
+        ('Atrasadas', late, '#df4a59'),
+    ]):
+        col.markdown(
+            f'<div class="metric" style="--accent:{color}">'
+            f'<div class="label">{label}</div><div class="value">{value}</div></div>',
+            unsafe_allow_html=True,
+        )
+    st.write('')
+    st.progress(done / total if total else 0,
+                text=f'Progresso de conclusão: {done}/{total} ({done / total:.0%})' if total else 'Sem atividades')
+
+    colors = {
+        'Concluída': '#19a474', 'Aprovada': '#168f66',
+        'Pendente': '#e8b247', 'Aguardando aprovação': '#6385eb',
+        'Atrasada': '#e0525d',
+    }
+    left, right = st.columns([1.2, 1], gap='large')
+    with left:
+        st.subheader('Análise de atividades')
+        if not view.empty:
+            group = view.groupby(['Segmentação', 'Situação']).size().reset_index(name='Quantidade')
+            fig = px.bar(group, x='Segmentação', y='Quantidade', color='Situação',
+                         barmode='stack', color_discrete_map=colors)
+            fig.update_layout(xaxis_title='', legend_title='', margin=dict(t=20, b=20),
+                              height=340, paper_bgcolor='rgba(0,0,0,0)',
+                              plot_bgcolor='rgba(0,0,0,0)', font_color='#18243C')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info('Nenhuma atividade corresponde aos filtros.')
+
+    with right:
+        st.subheader('Agenda de vencimentos')
+        agenda = view.copy()
+        if not agenda.empty:
+            agenda['Vencimento'] = pd.to_datetime(agenda['Prazo']).dt.strftime('%d/%m/%Y')
+            agenda = agenda.sort_values(['Prazo', 'Atividade'])
+            agenda = agenda[['Vencimento', 'Atividade', 'Segmentação', 'Responsável', 'Situação']]
+            st.dataframe(agenda, hide_index=True, use_container_width=True,
+                         height=340)
+            st.download_button('⬇ Exportar vencimentos', excel_bytes(agenda),
+                               file_name=f'TLOG_vencimentos_{period}.xlsx',
+                               mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        else:
+            st.info('Nenhum vencimento corresponde aos filtros.')
+
+    st.subheader('Desempenho por responsável')
     if not view.empty:
-        with left:
-            group=view.groupby(['Segmentação','Situação']).size().reset_index(name='Quantidade')
-            fig=px.bar(group,x='Segmentação',y='Quantidade',color='Situação',barmode='stack',title='Atividades por segmentação',color_discrete_map={'Concluída':'#19a474','Aprovada':'#168f66','Pendente':'#e8b247','Aguardando aprovação':'#6385eb','Atrasada':'#e0525d'})
-            fig.update_layout(xaxis_title='',legend_title='',margin=dict(t=45,b=20));st.plotly_chart(fig,use_container_width=True)
-        with right:
-            group=view.groupby('Situação').size().reset_index(name='Quantidade')
-            fig=px.pie(group,names='Situação',values='Quantidade',hole=.6,title='Distribuição das atividades',color='Situação',color_discrete_map={'Concluída':'#19a474','Aprovada':'#168f66','Pendente':'#e8b247','Aguardando aprovação':'#6385eb','Atrasada':'#e0525d'})
-            st.plotly_chart(fig,use_container_width=True)
-    history=q('''SELECT i.period,s.name AS Segmentação,i.status,COUNT(*) AS quantidade FROM instances i JOIN tasks t ON i.task_id=t.id JOIN segments s ON t.segment_id=s.id JOIN users u ON t.assignee_id=u.id WHERE i.period<=? AND i.period>=? '''+('AND t.assignee_id=? ' if not manager else '')+''' GROUP BY i.period,s.name,i.status''',(period,(date.fromisoformat(period+'-01')-timedelta(days=180)).strftime('%Y-%m'),user['id']) if not manager else (period,(date.fromisoformat(period+'-01')-timedelta(days=180)).strftime('%Y-%m')))
+        performance = view.groupby(['Responsável', 'Situação']).size().reset_index(name='Quantidade')
+        fig_users = px.bar(performance, x='Responsável', y='Quantidade', color='Situação',
+                           barmode='stack', color_discrete_map=colors)
+        fig_users.update_layout(xaxis_title='', legend_title='', height=320,
+                                margin=dict(t=20, b=20), font_color='#18243C',
+                                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_users, use_container_width=True)
+
+    st.subheader('Distribuição das atividades')
+    if not view.empty:
+        dist = view.groupby('Situação').size().reset_index(name='Quantidade')
+        fig_pie = px.pie(dist, names='Situação', values='Quantidade', hole=.6,
+                         color='Situação', color_discrete_map=colors)
+        fig_pie.update_layout(height=310, font_color='#18243C',
+                              paper_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    history = q('''SELECT i.period,s.name AS Segmentação,i.status,COUNT(*) AS quantidade
+                   FROM instances i JOIN tasks t ON i.task_id=t.id
+                   JOIN segments s ON t.segment_id=s.id
+                   JOIN users u ON t.assignee_id=u.id
+                   WHERE i.period<=? AND i.period>=? '''
+                + ('AND t.assignee_id=? ' if not manager else '')
+                + ''' GROUP BY i.period,s.name,i.status''',
+                (period, (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m'), user['id'])
+                if not manager else
+                (period, (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m')))
     if not history.empty:
-        history['ok']=history['status'].isin(['Concluída','Aprovada'])
-        h=history.groupby(['period','Segmentação','ok'])['quantidade'].sum().unstack(fill_value=0).reset_index()
-        h['Conclusão (%)']=(100*h.get(True,0)/(h.get(True,0)+h.get(False,0))).round(1)
-        fig=px.line(h,x='period',y='Conclusão (%)',color='Segmentação',markers=True,title='Evolução histórica por segmentação',range_y=[0,100]);st.plotly_chart(fig,use_container_width=True)
+        history['ok'] = history['status'].isin(['Concluída', 'Aprovada'])
+        h = history.groupby(['period', 'Segmentação', 'ok'])['quantidade'].sum().unstack(fill_value=0)
+        ok = h[True] if True in h.columns else pd.Series(0, index=h.index)
+        not_ok = h[False] if False in h.columns else pd.Series(0, index=h.index)
+        h['Conclusão (%)'] = (100 * ok / (ok + not_ok).replace(0, 1)).round(1)
+        h = h.reset_index()
+        fig_history = px.line(h, x='period', y='Conclusão (%)', color='Segmentação',
+                              markers=True, title='Evolução histórica por segmentação', range_y=[0, 100])
+        st.plotly_chart(fig_history, use_container_width=True)
+
     st.subheader('Detalhamento')
-    cols=['Atividade','Segmentação','Responsável','Prazo','Situação','Conclusão','Observações']
-    st.dataframe(view[cols],hide_index=True,use_container_width=True)
-    st.download_button('⬇ Exportar Excel',excel_bytes(view[cols]),file_name=f'TLOG_atividades_{period}.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    detail_cols = ['Atividade', 'Segmentação', 'Responsável', 'Prazo',
+                   'Situação', 'Conclusão', 'Observações']
+    st.dataframe(view[detail_cols], hide_index=True, use_container_width=True)
+    st.download_button('⬇ Exportar Excel', excel_bytes(view[detail_cols]),
+                       file_name=f'TLOG_atividades_{period}.xlsx',
+                       mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 elif page.startswith('☑️'):
     mine=df[df['assignee_id']==user['id']].copy()
