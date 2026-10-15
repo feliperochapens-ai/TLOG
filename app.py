@@ -49,8 +49,16 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_instances_period ON instances(period);
         ''')
         if not c.execute('SELECT 1 FROM segments LIMIT 1').fetchone():
-            c.executemany('INSERT INTO segments(name) VALUES(?)',[(x,) for x in ['Fechamento','Lançamento de contas fixas','Cartão de crédito']])
-        if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
+c.executemany(
+    'INSERT OR IGNORE INTO segments(name) VALUES(?)',
+    [
+        (x,) for x in [
+            'Fechamento',
+            'Lançamento de contas fixas',
+            'Cartão de crédito'
+        ]
+    ]
+)        if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
             pw=os.environ.get('TLOG_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
             c.execute('INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',('Administrador','admin',hash_pw(pw),'admin'))
             st.session_state['initial_password']=pw
