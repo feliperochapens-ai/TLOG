@@ -41,15 +41,18 @@ def verify_pw(pw, stored):
     except Exception:return False
 
 
+
 def init_db():
     with connect() as c:
-        c.executescript('''
+        c.executescript("""
         CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('admin','coordenador','colaborador')),
+            role TEXT NOT NULL CHECK(
+                role IN ('admin','coordenador','colaborador')
+            ),
             active INTEGER DEFAULT 1
         );
 
@@ -87,23 +90,26 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_instances_period
         ON instances(period);
-        ''')
+        """)
 
-        # Cadastrar as segmentações iniciais
         c.executemany(
-            'INSERT OR IGNORE INTO segments(name) VALUES(?)',
+            "INSERT OR IGNORE INTO segments(name) VALUES(?)",
             [
-                ('Fechamento',),
-                ('Lançamento de contas fixas',),
-                ('Cartão de crédito',)
+                ("Fechamento",),
+                ("Lançamento de contas fixas",),
+                ("Cartão de crédito",)
             ]
         )
 
-
-        # Criar administrador inicial ou recuperar acesso
         admin_password = st.secrets.get(
             "TLOG_ADMIN_PASSWORD", None
         )
+
+        if not admin_password:
+            st.error(
+                "Configure TLOG_ADMIN_PASSWORD no Streamlit Secrets."
+            )
+            st.stop()
 
         admin = c.execute(
             "SELECT id FROM users WHERE username = ?",
@@ -111,47 +117,35 @@ def init_db():
         ).fetchone()
 
         if admin is None:
-            if admin_password:
-                pw = admin_password
-            else:
-                pw = secrets.token_urlsafe(16)
-
             c.execute(
                 """
                 INSERT INTO users
-                (name, username, password, role, active)
-                VALUES (?, ?, ?, ?, ?)
+                (name,username,password,role,active)
+                VALUES(?,?,?,?,?)
                 """,
                 (
                     "Administrador",
                     "admin",
-                    hash_pw(pw),
+                    hash_pw(admin_password),
                     "admin",
                     1
                 )
             )
 
-            if not admin_password:
-                st.session_state["initial_password"] = pw
-
-        elif (
-            admin_password
-            and st.secrets.get(
-                "TLOG_RESET_ADMIN_PASSWORD", False
-            )
+        elif st.secrets.get(
+            "TLOG_RESET_ADMIN_PASSWORD", False
         ):
             c.execute(
                 """
                 UPDATE users
-                SET password = ?, role = ?, active = 1
-                WHERE username = ?
+                SET password=?,role='admin',active=1
+                WHERE username='admin'
                 """,
-                (
-                    hash_pw(admin_password),
-                    "admin",
-                    "admin"
-                )
+                (hash_pw(admin_password),)
             )
+
+        c.commit()
+
 
 def q(sql,args=()):
     with connect() as c:return pd.read_sql_query(sql,c,params=args)
