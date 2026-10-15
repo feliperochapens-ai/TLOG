@@ -25,7 +25,9 @@ CSS = """
 /* Barra lateral */
 [data-testid="stSidebar"] {
     background: #10182e;
-}
+}}
+</style>
+"""
 st.markdown(CSS, unsafe_allow_html=True)
 
 def connect():
