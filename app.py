@@ -494,32 +494,19 @@ if page.startswith('📊'):
                     activity_dialog(label, subset, period)
         done = len(categories[1][1])
         total = len(view)
-        st.progress(done / total if total else 0, text=f'Progresso de conclusão: {done}/{total} ({done / total:.0%})' if total else 'Sem atividades')
-
-        # Acompanhamento da competência: segue os filtros e permissões do Dashboard.
-        # Apenas Concluída/Aprovada conta como finalizada; tarefas aguardando
-        # aprovação permanecem no saldo de atividades não concluídas.
-        st.subheader('Progresso da competência')
-        percentual_geral = (done / total * 100) if total else 0
-        st.markdown(
-            f'<div style="display:flex;justify-content:space-between;align-items:center;'
-            f'color:#18243C;font-weight:600;margin-bottom:6px">'
-            f'<span>Geral — {period[5:7]}/{period[:4]}</span>'
-            f'<span>{percentual_geral:.0f}%</span></div>',
-            unsafe_allow_html=True,
-        )
-        if total and done == total:
-            st.markdown('<div style="height:12px;border-radius:999px;background:#16A34A;'
-                        'margin:0 0 8px 0"></div>', unsafe_allow_html=True)
+        # O progresso acompanha o filtro Segmentação (sem criar outro seletor).
+        # A situação não altera o denominador: o progresso representa todas as
+        # atividades previstas da segmentação na competência selecionada.
+        st.subheader('Progresso por segmentação')
+        progresso_view = df.copy()
+        if seg:
+            progresso_view = progresso_view[progresso_view['Segmentação'].isin(seg)]
+        if people:
+            progresso_view = progresso_view[progresso_view['Responsável'].isin(people)]
+        if progresso_view.empty:
+            st.info('Nenhuma atividade para as segmentações e responsáveis selecionados.')
         else:
-            st.progress(done / total if total else 0)
-        st.caption(f'{done} de {total} atividades concluídas / aprovadas')
-
-        st.markdown('**Progresso por segmentação**')
-        if view.empty:
-            st.info('Nenhuma atividade para os filtros selecionados.')
-        else:
-            for nome_segmento, atividades_segmento in view.groupby('Segmentação', sort=True):
+            for nome_segmento, atividades_segmento in progresso_view.groupby('Segmentação', sort=True):
                 total_segmento = len(atividades_segmento)
                 feitas_segmento = int(atividades_segmento['Situação'].isin(['Concluída', 'Aprovada']).sum())
                 fracao_segmento = feitas_segmento / total_segmento
