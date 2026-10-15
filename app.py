@@ -7,20 +7,25 @@ import streamlit as st
 
 st.set_page_config(page_title='TLOG | Gestão de Atividades', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 DB = os.environ.get('TLOG_DB_PATH', os.path.join(os.path.dirname(__file__), 'atividades.db'))
+CSS = """
+<style>
+/* Fundo geral */
+[data-testid="stAppViewContainer"] {
+    background: #f3f5fa;
+    color: #18243c;
+}
 
-CSS='''<style>
-[data-testid="stAppViewContainer"]{background:#f3f5fa;color:#18243c}
-[data-testid="stSidebar"]{background:#10182e}
-[data-testid="stSidebar"] *{color:#f7f8ff!important}
-[data-testid="stSidebar"] input{color:#18243c!important}
-.block-container{padding-top:1.3rem;max-width:1550px}
-.tlog-head{background:#10182e;color:white;border-radius:9px;padding:13px 21px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center}
-.tlog-banner{background:linear-gradient(105deg,#607bf0,#7c4aa7);color:white;border-radius:11px;padding:19px 24px;margin-bottom:15px}
-.tlog-banner h2{margin:0;color:white;font-size:24px}.tlog-banner p{margin:3px 0 0;font-size:13px;color:#f2edff}
-.metric{background:white;border-radius:12px;padding:15px;border-left:4px solid var(--accent);box-shadow:0 2px 9px #15213b0b}
-.metric .label{color:#6c7789;font-size:11px;text-transform:uppercase}.metric .value{color:var(--accent);font-size:27px;font-weight:750}
-div[data-testid="stForm"]{background:white;border-radius:12px;padding:15px;border:1px solid #e4e9f3}
-</style>'''
+/* Espaçamento superior do conteúdo */
+.block-container {
+    padding-top: 4rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 1550px;
+}
+
+/* Barra lateral */
+[data-testid="stSidebar"] {
+    background: #10182e;
+}
 st.markdown(CSS, unsafe_allow_html=True)
 
 def connect():
