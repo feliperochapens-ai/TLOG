@@ -118,36 +118,36 @@ button[data-baseweb="tab"][aria-selected="true"] {
 }
 [data-testid="stDownloadButton"] button * { color: #000000 !important; }
 
-/* Administração > Segmentações: botões brancos com texto preto */
-.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button,
-.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button {
+/* Administração > Atividades, Usuários, Segmentações e Licenças: botões brancos com texto preto */
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stButton"] button,
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stFormSubmitButton"] button {
     background: #FFFFFF !important;
     color: #111111 !important;
     border: 1px solid #C9CED8 !important;
     opacity: 1 !important;
 }
-.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button *,
-.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button * {
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stButton"] button *,
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stFormSubmitButton"] button * {
     color: #111111 !important;
 }
-.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:hover:not(:disabled),
-.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:hover:not(:disabled) {
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stButton"] button:hover:not(:disabled),
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stFormSubmitButton"] button:hover:not(:disabled) {
     background: #F1F4FC !important;
     border-color: #607BF0 !important;
 }
-.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:disabled,
-.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:disabled {
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stButton"] button:disabled,
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stFormSubmitButton"] button:disabled {
     background: #F0F1F4 !important;
     color: #747B88 !important;
     border-color: #D8DCE4 !important;
     cursor: not-allowed !important;
 }
-.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:disabled *,
-.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:disabled * {
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stButton"] button:disabled *,
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stFormSubmitButton"] button:disabled * {
     color: #747B88 !important;
 }
 /* Texto legível no alerta de exclusão */
-.st-key-segmentacoes_admin_estilo [data-testid="stAlert"] p {
+:is(.st-key-atividades_admin_estilo, .st-key-usuarios_admin_estilo, .st-key-segmentacoes_admin_estilo, .st-key-licencas_admin_estilo) [data-testid="stAlert"] p {
     color: #242424 !important;
 }
 
@@ -774,93 +774,95 @@ elif page.startswith('⚙'):
     tab1, tab2, tab3, tab4 = st.tabs(['Atividades', 'Usuários', 'Segmentações', 'Licenças'])
 
     with tab1:
-        users = [dict(u) for u in rows(
-            'SELECT id,name FROM users WHERE active=1 ORDER BY name'
-        )]
+        with st.container(key="atividades_admin_estilo"):
+            users = [dict(u) for u in rows(
+                'SELECT id,name FROM users WHERE active=1 ORDER BY name'
+            )]
 
-        segs = [dict(s) for s in rows(
-            'SELECT id,name,active FROM segments WHERE active=1 ORDER BY name'
-        )]
-        tasks=rows('SELECT t.*,s.name AS segment,u.name AS owner FROM tasks t JOIN segments s ON t.segment_id=s.id JOIN users u ON t.assignee_id=u.id ORDER BY t.id DESC')
-        choices={'➕ Nova atividade':None,**{f"#{t['id']} · {t['title']}":t for t in tasks}}
-        selected=st.selectbox('Criar ou editar',list(choices))
-        item=choices[selected]
+            segs = [dict(s) for s in rows(
+                'SELECT id,name,active FROM segments WHERE active=1 ORDER BY name'
+            )]
+            tasks=rows('SELECT t.*,s.name AS segment,u.name AS owner FROM tasks t JOIN segments s ON t.segment_id=s.id JOIN users u ON t.assignee_id=u.id ORDER BY t.id DESC')
+            choices={'➕ Nova atividade':None,**{f"#{t['id']} · {t['title']}":t for t in tasks}}
+            selected=st.selectbox('Criar ou editar',list(choices))
+            item=choices[selected]
        
-        with st.form('task_form'):
-            title = st.text_input('Atividade', value=item['title'] if item else '')
+            with st.form('task_form'):
+                title = st.text_input('Atividade', value=item['title'] if item else '')
 
-            # Permite editar atividades antigas sem reativar a segmentação.
-            if item and not any(s['id'] == item['segment_id'] for s in segs):
-                segs = [dict(s) for s in rows('SELECT id,name,active FROM segments WHERE id=?', (item['segment_id'],))] + segs
-            segment_index = next(
-                (i for i, s in enumerate(segs) if item and s['id'] == item['segment_id']),
-                0
-            )
+                # Permite editar atividades antigas sem reativar a segmentação.
+                if item and not any(s['id'] == item['segment_id'] for s in segs):
+                    segs = [dict(s) for s in rows('SELECT id,name,active FROM segments WHERE id=?', (item['segment_id'],))] + segs
+                segment_index = next(
+                    (i for i, s in enumerate(segs) if item and s['id'] == item['segment_id']),
+                    0
+                )
 
-            segment = st.selectbox(
-                'Segmentação',
-                segs,
-                index=segment_index,
-                format_func=lambda x: x['name'] + (' (desativada)' if not x['active'] else '')
-            )
+                segment = st.selectbox(
+                    'Segmentação',
+                    segs,
+                    index=segment_index,
+                    format_func=lambda x: x['name'] + (' (desativada)' if not x['active'] else '')
+                )
 
-            assignee_index = next(
-                (i for i, u in enumerate(users) if item and u['id'] == item['assignee_id']),
-                0
-            )
+                assignee_index = next(
+                    (i for i, u in enumerate(users) if item and u['id'] == item['assignee_id']),
+                    0
+                )
 
-            assignee = st.selectbox(
-                'Responsável',
-                users,
-                index=assignee_index,
-                format_func=lambda x: x['name']
-            )
+                assignee = st.selectbox(
+                    'Responsável',
+                    users,
+                    index=assignee_index,
+                    format_func=lambda x: x['name']
+                )
 
-            due=st.number_input('Dia do vencimento',1,31,value=item['due_day'] if item else 10)
-            working=st.checkbox('Contar como dia útil (segunda a sexta, sem feriados)',value=bool(item['working_day']) if item else False)
-            recurring=st.checkbox('Repetir mensalmente',value=bool(item['recurring']) if item else True)
-            approval=st.checkbox('Exigir aprovação do coordenador',value=bool(item['requires_approval']) if item else False)
-            active=st.checkbox('Atividade ativa',value=bool(item['active']) if item else True)
-            description=st.text_area('Instruções / descrição',value=item['description'] if item else '')
-            if st.form_submit_button('Salvar atividade',type='primary'):
-                if not title.strip():st.error('Informe o nome da atividade.')
-                elif item:
-                    execute('UPDATE tasks SET title=?,segment_id=?,assignee_id=?,due_day=?,working_day=?,recurring=?,requires_approval=?,active=?,description=? WHERE id=?',(title.strip(),segment['id'],assignee['id'],due,int(working),int(recurring),int(approval),int(active),description,item['id']))
-                    st.success('Atividade atualizada. Alterações de prazo não mudam meses já gerados.')
-                else:
-                    execute('INSERT INTO tasks(title,segment_id,assignee_id,due_day,working_day,recurring,requires_approval,active,description) VALUES(?,?,?,?,?,?,?,?,?)',(title.strip(),segment['id'],assignee['id'],due,int(working),int(recurring),int(approval),int(active),description))
-                    st.success('Atividade cadastrada! Abra o mês no Dashboard para gerar a recorrência.');st.rerun()
-        st.dataframe(pd.DataFrame([{'ID':t['id'],'Atividade':t['title'],'Segmentação':t['segment'],'Responsável':t['owner'],'Ativa':bool(t['active'])} for t in tasks]),hide_index=True,use_container_width=True)
+                due=st.number_input('Dia do vencimento',1,31,value=item['due_day'] if item else 10)
+                working=st.checkbox('Contar como dia útil (segunda a sexta, sem feriados)',value=bool(item['working_day']) if item else False)
+                recurring=st.checkbox('Repetir mensalmente',value=bool(item['recurring']) if item else True)
+                approval=st.checkbox('Exigir aprovação do coordenador',value=bool(item['requires_approval']) if item else False)
+                active=st.checkbox('Atividade ativa',value=bool(item['active']) if item else True)
+                description=st.text_area('Instruções / descrição',value=item['description'] if item else '')
+                if st.form_submit_button('Salvar atividade',type='primary'):
+                    if not title.strip():st.error('Informe o nome da atividade.')
+                    elif item:
+                        execute('UPDATE tasks SET title=?,segment_id=?,assignee_id=?,due_day=?,working_day=?,recurring=?,requires_approval=?,active=?,description=? WHERE id=?',(title.strip(),segment['id'],assignee['id'],due,int(working),int(recurring),int(approval),int(active),description,item['id']))
+                        st.success('Atividade atualizada. Alterações de prazo não mudam meses já gerados.')
+                    else:
+                        execute('INSERT INTO tasks(title,segment_id,assignee_id,due_day,working_day,recurring,requires_approval,active,description) VALUES(?,?,?,?,?,?,?,?,?)',(title.strip(),segment['id'],assignee['id'],due,int(working),int(recurring),int(approval),int(active),description))
+                        st.success('Atividade cadastrada! Abra o mês no Dashboard para gerar a recorrência.');st.rerun()
+            st.dataframe(pd.DataFrame([{'ID':t['id'],'Atividade':t['title'],'Segmentação':t['segment'],'Responsável':t['owner'],'Ativa':bool(t['active'])} for t in tasks]),hide_index=True,use_container_width=True)
     with tab2:
-        with st.form('new_user'):
-            name=st.text_input('Nome completo')
-            login=st.text_input('Nome de usuário')
-            pw=st.text_input('Senha inicial',type='password')
-            role=st.selectbox('Perfil',['colaborador','coordenador','admin'])
-            if st.form_submit_button('Criar usuário'):
-                if not name.strip() or not login.strip() or len(pw)<10:st.error('Informe nome, usuário e senha com pelo menos 10 caracteres.')
-                else:
-                    try:execute('INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',(name.strip(),login.strip(),hash_pw(pw),role));st.success('Usuário criado.')
-                    except sqlite3.IntegrityError:st.error('Nome de usuário já utilizado.')
-        users_all=rows('SELECT id,name,username,role,active FROM users ORDER BY name')
-        st.dataframe(pd.DataFrame([dict(x) for x in users_all]),hide_index=True,use_container_width=True)
+        with st.container(key="usuarios_admin_estilo"):
+            with st.form('new_user'):
+                name=st.text_input('Nome completo')
+                login=st.text_input('Nome de usuário')
+                pw=st.text_input('Senha inicial',type='password')
+                role=st.selectbox('Perfil',['colaborador','coordenador','admin'])
+                if st.form_submit_button('Criar usuário'):
+                    if not name.strip() or not login.strip() or len(pw)<10:st.error('Informe nome, usuário e senha com pelo menos 10 caracteres.')
+                    else:
+                        try:execute('INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',(name.strip(),login.strip(),hash_pw(pw),role));st.success('Usuário criado.')
+                        except sqlite3.IntegrityError:st.error('Nome de usuário já utilizado.')
+            users_all=rows('SELECT id,name,username,role,active FROM users ORDER BY name')
+            st.dataframe(pd.DataFrame([dict(x) for x in users_all]),hide_index=True,use_container_width=True)
        
-        with st.form('edit_user'):
-            target = st.selectbox(
-                'Editar usuário',
-                [dict(u) for u in users_all],
-                format_func=lambda x: f"{x['name']} ({x['username']})"
-            )
-            newrole = st.selectbox('Perfil', ['colaborador', 'coordenador', 'admin'], index=['colaborador', 'coordenador', 'admin'].index(target['role']))
-            newpw=st.text_input('Nova senha (deixe vazio para manter)',type='password')
-            active=st.checkbox('Ativo',value=bool(target['active']))
-            if st.form_submit_button('Atualizar usuário'):
-                if newpw and len(newpw)<10:st.error('Senha deve ter pelo menos 10 caracteres.')
-                elif target['id']==user['id'] and (not active or newrole!='admin'):st.error('Não é permitido desativar ou remover o próprio perfil de administrador.')
-                else:
-                    execute('UPDATE users SET role=?,active=? WHERE id=?',(newrole,int(active),target['id']))
-                    if newpw:execute('UPDATE users SET password=? WHERE id=?',(hash_pw(newpw),target['id']))
-                    st.success('Usuário atualizado.');st.rerun()
+            with st.form('edit_user'):
+                target = st.selectbox(
+                    'Editar usuário',
+                    [dict(u) for u in users_all],
+                    format_func=lambda x: f"{x['name']} ({x['username']})"
+                )
+                newrole = st.selectbox('Perfil', ['colaborador', 'coordenador', 'admin'], index=['colaborador', 'coordenador', 'admin'].index(target['role']))
+                newpw=st.text_input('Nova senha (deixe vazio para manter)',type='password')
+                active=st.checkbox('Ativo',value=bool(target['active']))
+                if st.form_submit_button('Atualizar usuário'):
+                    if newpw and len(newpw)<10:st.error('Senha deve ter pelo menos 10 caracteres.')
+                    elif target['id']==user['id'] and (not active or newrole!='admin'):st.error('Não é permitido desativar ou remover o próprio perfil de administrador.')
+                    else:
+                        execute('UPDATE users SET role=?,active=? WHERE id=?',(newrole,int(active),target['id']))
+                        if newpw:execute('UPDATE users SET password=? WHERE id=?',(hash_pw(newpw),target['id']))
+                        st.success('Usuário atualizado.');st.rerun()
     with tab3:
         with st.container(key="segmentacoes_admin_estilo"):
             st.dataframe(q('SELECT * FROM segments ORDER BY name'),hide_index=True,use_container_width=True)
@@ -919,66 +921,67 @@ elif page.startswith('⚙'):
                     st.info('Esta segmentação possui atividades vinculadas. Para preservar o histórico, utilize Desativar.')
 
     with tab4:
-        st.subheader('Filiais / Unidades')
-        with st.form('new_branch', clear_on_submit=True):
-            new_branch = st.text_input('Nome da filial')
-            if st.form_submit_button('Cadastrar filial'):
-                if not new_branch.strip():
-                    st.error('Informe o nome da filial.')
-                else:
-                    try:
-                        execute('INSERT INTO branches(name) VALUES(?)', (new_branch.strip(),))
-                        st.success('Filial cadastrada.'); st.rerun()
-                    except sqlite3.IntegrityError:
-                        st.error('Esta filial já está cadastrada.')
-        branches = [dict(x) for x in rows('SELECT id,name FROM branches WHERE active=1 ORDER BY name')]
-        st.subheader('Cadastro e renovação de licenças')
-        if not branches:
-            st.info('Cadastre ao menos uma filial antes de cadastrar licenças.')
-        else:
-            license_list = [dict(x) for x in rows('SELECT * FROM licenses ORDER BY name')]
-            opts = {'➕ Nova licença':None, **{f"#{x['id']} · {x['name']}":x for x in license_list}}
-            selected = st.selectbox('Criar ou editar licença', list(opts))
-            current = opts[selected]
-            users_for_license = [dict(x) for x in rows('SELECT id,name FROM users WHERE active=1 ORDER BY name')]
-            with st.form('license_form'):
-                license_name = st.text_input('Licença / Alvará', value=current['name'] if current else '')
-                branch_idx = next((i for i,b in enumerate(branches) if current and b['id']==current['branch_id']),0)
-                chosen_branch = st.selectbox('Filial', branches, index=branch_idx, format_func=lambda x:x['name'])
-                issuer = st.text_input('Órgão emissor', value=current['issuer'] or '' if current else '')
-                number = st.text_input('Número do documento', value=current['document_number'] or '' if current else '')
-                issue_date = st.date_input('Data de emissão', value=date.fromisoformat(current['issued_on']) if current and current['issued_on'] else None)
-                expiry_date = st.date_input('Vencimento', value=date.fromisoformat(current['expires_on']) if current else date.today())
-                user_options = [None] + users_for_license
-                owner_idx = next((i for i,u in enumerate(user_options) if u and current and u['id']==current['responsible_id']),0)
-                owner = st.selectbox('Responsável', user_options, index=owner_idx, format_func=lambda x:x['name'] if x else 'Não definido')
-                notes = st.text_area('Observações', value=current['notes'] or '' if current else '')
-                active_license = st.checkbox('Licença ativa', value=bool(current['active']) if current else True)
-                if st.form_submit_button('Salvar licença', type='primary'):
-                    if not license_name.strip():
-                        st.error('Informe o nome da licença.')
-                    elif current:
-                        if current['expires_on'] != expiry_date.isoformat():
-                            execute('INSERT INTO license_renewals(license_id,old_expires_on,new_expires_on,renewed_by) VALUES(?,?,?,?)',
-                                    (current['id'], current['expires_on'], expiry_date.isoformat(), user['id']))
-                        execute('''UPDATE licenses SET name=?,branch_id=?,issuer=?,document_number=?,issued_on=?,
-                                expires_on=?,responsible_id=?,notes=?,active=? WHERE id=?''',
-                                (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
-                                 expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license),current['id']))
-                        st.success('Licença atualizada.'); st.rerun()
+        with st.container(key="licencas_admin_estilo"):
+            st.subheader('Filiais / Unidades')
+            with st.form('new_branch', clear_on_submit=True):
+                new_branch = st.text_input('Nome da filial')
+                if st.form_submit_button('Cadastrar filial'):
+                    if not new_branch.strip():
+                        st.error('Informe o nome da filial.')
                     else:
-                        execute('''INSERT INTO licenses(name,branch_id,issuer,document_number,issued_on,expires_on,responsible_id,notes,active)
-                                VALUES(?,?,?,?,?,?,?,?,?)''',
-                                (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
-                                 expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license)))
-                        st.success('Licença cadastrada.'); st.rerun()
-            st.subheader('Histórico de alterações de vencimento')
-            renewals = q('''SELECT l.name AS Licença, b.name AS Filial, r.old_expires_on AS Vencimento_anterior,
-                r.new_expires_on AS Novo_vencimento, r.renewed_at AS Alterado_em, u.name AS Alterado_por
-                FROM license_renewals r JOIN licenses l ON r.license_id=l.id
-                JOIN branches b ON l.branch_id=b.id
-                LEFT JOIN users u ON r.renewed_by=u.id ORDER BY r.renewed_at DESC''')
-            st.dataframe(renewals, hide_index=True, use_container_width=True)
+                        try:
+                            execute('INSERT INTO branches(name) VALUES(?)', (new_branch.strip(),))
+                            st.success('Filial cadastrada.'); st.rerun()
+                        except sqlite3.IntegrityError:
+                            st.error('Esta filial já está cadastrada.')
+            branches = [dict(x) for x in rows('SELECT id,name FROM branches WHERE active=1 ORDER BY name')]
+            st.subheader('Cadastro e renovação de licenças')
+            if not branches:
+                st.info('Cadastre ao menos uma filial antes de cadastrar licenças.')
+            else:
+                license_list = [dict(x) for x in rows('SELECT * FROM licenses ORDER BY name')]
+                opts = {'➕ Nova licença':None, **{f"#{x['id']} · {x['name']}":x for x in license_list}}
+                selected = st.selectbox('Criar ou editar licença', list(opts))
+                current = opts[selected]
+                users_for_license = [dict(x) for x in rows('SELECT id,name FROM users WHERE active=1 ORDER BY name')]
+                with st.form('license_form'):
+                    license_name = st.text_input('Licença / Alvará', value=current['name'] if current else '')
+                    branch_idx = next((i for i,b in enumerate(branches) if current and b['id']==current['branch_id']),0)
+                    chosen_branch = st.selectbox('Filial', branches, index=branch_idx, format_func=lambda x:x['name'])
+                    issuer = st.text_input('Órgão emissor', value=current['issuer'] or '' if current else '')
+                    number = st.text_input('Número do documento', value=current['document_number'] or '' if current else '')
+                    issue_date = st.date_input('Data de emissão', value=date.fromisoformat(current['issued_on']) if current and current['issued_on'] else None)
+                    expiry_date = st.date_input('Vencimento', value=date.fromisoformat(current['expires_on']) if current else date.today())
+                    user_options = [None] + users_for_license
+                    owner_idx = next((i for i,u in enumerate(user_options) if u and current and u['id']==current['responsible_id']),0)
+                    owner = st.selectbox('Responsável', user_options, index=owner_idx, format_func=lambda x:x['name'] if x else 'Não definido')
+                    notes = st.text_area('Observações', value=current['notes'] or '' if current else '')
+                    active_license = st.checkbox('Licença ativa', value=bool(current['active']) if current else True)
+                    if st.form_submit_button('Salvar licença', type='primary'):
+                        if not license_name.strip():
+                            st.error('Informe o nome da licença.')
+                        elif current:
+                            if current['expires_on'] != expiry_date.isoformat():
+                                execute('INSERT INTO license_renewals(license_id,old_expires_on,new_expires_on,renewed_by) VALUES(?,?,?,?)',
+                                        (current['id'], current['expires_on'], expiry_date.isoformat(), user['id']))
+                            execute('''UPDATE licenses SET name=?,branch_id=?,issuer=?,document_number=?,issued_on=?,
+                                    expires_on=?,responsible_id=?,notes=?,active=? WHERE id=?''',
+                                    (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
+                                     expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license),current['id']))
+                            st.success('Licença atualizada.'); st.rerun()
+                        else:
+                            execute('''INSERT INTO licenses(name,branch_id,issuer,document_number,issued_on,expires_on,responsible_id,notes,active)
+                                    VALUES(?,?,?,?,?,?,?,?,?)''',
+                                    (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
+                                     expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license)))
+                            st.success('Licença cadastrada.'); st.rerun()
+                st.subheader('Histórico de alterações de vencimento')
+                renewals = q('''SELECT l.name AS Licença, b.name AS Filial, r.old_expires_on AS Vencimento_anterior,
+                    r.new_expires_on AS Novo_vencimento, r.renewed_at AS Alterado_em, u.name AS Alterado_por
+                    FROM license_renewals r JOIN licenses l ON r.license_id=l.id
+                    JOIN branches b ON l.branch_id=b.id
+                    LEFT JOIN users u ON r.renewed_by=u.id ORDER BY r.renewed_at DESC''')
+                st.dataframe(renewals, hide_index=True, use_container_width=True)
 
 elif page.startswith('🔒'):
     with st.form('password'):
