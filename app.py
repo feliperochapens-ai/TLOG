@@ -8,6 +8,50 @@ import streamlit as st
 st.set_page_config(page_title='TLOG | Gestão de Atividades', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 DB = os.environ.get('TLOG_DB_PATH', os.path.join(os.path.dirname(__file__), 'atividades.db'))
 CSS = """
+
+/* Textos dos campos */
+[data-testid="stWidgetLabel"] p {
+    color: #172b4d !important;
+    font-weight: 600 !important;
+}
+
+/* Abas de navegação */
+button[data-baseweb="tab"] {
+    color: #243653 !important;
+}
+
+button[data-baseweb="tab"]:hover {
+    color: #607bf0 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #607bf0 !important;
+}
+
+/* Textos e descrições */
+[data-testid="stMarkdownContainer"] p {
+    color: #243653;
+}
+
+/* Campos de entrada */
+input, textarea {
+    color: #172b4d !important;
+}
+
+/* Títulos */
+h1, h2, h3 {
+    color: #142849 !important;
+}
+
+/* Barra lateral */
+[data-testid="stSidebar"] {
+    background: #10182e;
+}
+
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {
+    color: #ffffff !important;
+}
 <style>
 /* Fundo geral */
 [data-testid="stAppViewContainer"] {
@@ -25,7 +69,7 @@ CSS = """
 /* Barra lateral */
 [data-testid="stSidebar"] {
     background: #10182e;
-}}
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
