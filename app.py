@@ -180,6 +180,36 @@ button[data-baseweb="tab"][aria-selected="true"] {
     color: #FFFFFF !important;
     fill: #FFFFFF !important;
 }
+
+/* Minhas atividades: botões secundários com fundo branco e texto preto */
+:is([class*="st-key-save_"], [class*="st-key-reopen_"]) [data-testid="stButton"] button,
+:is([class*="st-key-save_"], [class*="st-key-reopen_"]) button {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #C9CED8 !important;
+    opacity: 1 !important;
+}
+:is([class*="st-key-save_"], [class*="st-key-reopen_"]) button * {
+    color: #111111 !important;
+}
+:is([class*="st-key-save_"], [class*="st-key-reopen_"]) button:hover:not(:disabled) {
+    background-color: #F1F4FC !important;
+    border-color: #607BF0 !important;
+}
+/* Cabeçalhos de atividades expansíveis: legibilidade em ambos os estados */
+[data-testid="stExpander"] details > summary,
+[data-testid="stExpander"] details > summary:hover,
+[data-testid="stExpander"] details[open] > summary {
+    background-color: #FFFFFF !important;
+    color: #18243C !important;
+}
+[data-testid="stExpander"] details > summary p,
+[data-testid="stExpander"] details > summary span,
+[data-testid="stExpander"] details > summary svg {
+    color: #18243C !important;
+    fill: currentColor;
+}
+
 </style>
 """
 
