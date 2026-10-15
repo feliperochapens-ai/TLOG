@@ -504,8 +504,14 @@ elif page.startswith('⚙'):
                 except sqlite3.IntegrityError:st.error('Segmentação já existe.')
         with st.form('edit_seg'):
             seglist=rows('SELECT * FROM segments ORDER BY name')
-            old=st.selectbox('Renomear segmentação',seglist,format_func=lambda x:x['name'])
-            newname=st.text_input('Novo nome')
+            
+            old = st.selectbox(
+                'Renomear segmentação',
+                [dict(s) for s in seglist],
+                format_func=lambda x: x['name']
+            )
+            newname = st.text_input('Novo nome')
+
             if st.form_submit_button('Renomear') and newname.strip():
                 try:execute('UPDATE segments SET name=? WHERE id=?',(newname.strip(),old['id']));st.success('Segmentação renomeada.');st.rerun()
                 except sqlite3.IntegrityError:st.error('Já existe segmentação com esse nome.')
