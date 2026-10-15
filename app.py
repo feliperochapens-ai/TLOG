@@ -375,13 +375,28 @@ def status_color(status):
     return TLOG_YELLOW
 
 
-def styled_table(frame, *, expired_column=None, height=350, header_text='#FFFFFF'):
+def styled_table(frame, *, expired_column=None, height=350, header_text='#FFFFFF', status_icons=False):
     """Tabela HTML segura, com cabeçalho fixo e rolagem."""
     if frame.empty:
         st.info('Nenhum registro corresponde aos filtros.')
         return
     safe = frame.copy().fillna('')
     html_table = safe.to_html(index=False, escape=True, border=0, classes='tlog-table')
+    if status_icons and 'Situação' in safe.columns:
+        # Ícones são inseridos somente após o escape HTML do pandas.
+        # A planilha exportada mantém os textos originais das situações.
+        icons = {
+            'Concluída': ('&#10003;', '#16A34A'),
+            'Aprovada': ('&#10003;', '#16A34A'),
+            'Pendente': ('&#9719;', '#E8B247'),
+            'Aguardando aprovação': ('&#9719;', '#E8B247'),
+            'Atrasada': ('&#33;', '#DF4A59'),
+        }
+        for status, (symbol, color) in icons.items():
+            target = '<td>' + html.escape(status) + '</td>'
+            replacement = ('<td><span class="status-icon" style="color:' + color +
+                           '">' + symbol + '</span>' + html.escape(status) + '</td>')
+            html_table = html_table.replace(target, replacement)
     if expired_column is not None:
         import re
         # A situação foi escapada pelo pandas; destaque apenas linhas com situação Vencida.
@@ -396,6 +411,9 @@ def styled_table(frame, *, expired_column=None, height=350, header_text='#FFFFFF
         font-weight:700;text-align:left;padding:11px 8px;white-space:nowrap}
     tbody td{background:#fff;color:#000;border-bottom:1px solid #E4E9F3;padding:10px 8px}
     tbody tr.expired td{background:#DF4A59!important;color:#fff!important;font-weight:600}
+    .status-icon{display:inline-flex;align-items:center;justify-content:center;border:2px solid currentColor;
+        border-radius:50%;width:14px;height:14px;line-height:1;font-size:11px;font-weight:800;
+        margin-right:6px;vertical-align:middle;box-sizing:border-box}
     </style></head><body><div class="wrap">'''.replace('HEIGHT', str(height)).replace('HEADER', header_text) + html_table + '</div></body></html>'
     components.html(markup, height=height + 8, scrolling=False)
 
@@ -522,7 +540,7 @@ if page.startswith('📊'):
             if not agenda.empty:
                 agenda['Vencimento'] = pd.to_datetime(agenda['Prazo']).dt.strftime('%d/%m/%Y')
                 agenda = agenda[['Vencimento', 'Atividade', 'Segmentação', 'Responsável', 'Situação']]
-                styled_table(agenda, height=338)
+                styled_table(agenda, height=338, status_icons=True)
                 st.download_button('⬇ Exportar vencimentos', excel_bytes(agenda),
                                    file_name=f'TLOG_vencimentos_{period}.xlsx',
                                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
