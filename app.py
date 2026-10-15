@@ -487,8 +487,20 @@ if page.startswith('📊'):
             st.subheader('Análise de atividades')
             mode = st.radio('Tipo de análise', ['Segmentação', 'Responsável', 'Histórico'],
                             horizontal=True, label_visibility='collapsed')
+            # Categorias consistentes em todas as visualizações.
+            def grupo_situacao(valor):
+                if valor in ('Concluída', 'Aprovada'):
+                    return 'Concluídas'
+                if valor in ('Pendente', 'Aguardando aprovação'):
+                    return 'Pendentes'
+                return 'Atrasadas'
+
+            nomes = ['Concluídas', 'Pendentes', 'Atrasadas']
+            cores = {'Concluídas': TLOG_BLUE, 'Pendentes': TLOG_YELLOW,
+                     'Atrasadas': TLOG_RED}
+
             if mode == 'Histórico':
-                # Histórico respeita mês, segmentação, responsável e situação selecionados.
+                # Histórico respeita segmentação, responsável, situação e permissões.
                 first = (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m')
                 hsql = '''SELECT i.period AS Período, s.name AS Segmentação,
                     u.name AS Responsável, i.status AS Status, i.due_date AS Prazo
@@ -512,27 +524,55 @@ if page.startswith('📊'):
                 if hist.empty:
                     st.info('Sem histórico para os filtros selecionados.')
                 else:
-                    hist['Concluída'] = hist['Situação'].isin(['Concluída', 'Aprovada']).astype(int)
-                    monthly = hist.groupby('Período').agg(Total=('Concluída', 'size'), Concluídas=('Concluída', 'sum')).reset_index()
-                    monthly['Conclusão (%)'] = (100 * monthly['Concluídas'] / monthly['Total']).round(1)
-                    fig = px.line(monthly, x='Período', y='Conclusão (%)', markers=True,
-                                  range_y=[0, 100], color_discrete_sequence=[TLOG_BLUE])
-                    fig.update_layout(height=340, margin=dict(t=20,b=20), font_color='#18243C',
-                                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    hist['Grupo'] = hist['Situação'].map(grupo_situacao)
+                    monthly = (hist.groupby(['Período', 'Grupo']).size()
+                               .reset_index(name='Quantidade'))
+                    fig = px.line(monthly, x='Período', y='Quantidade', color='Grupo',
+                                  markers=True, category_orders={'Grupo': nomes},
+                                  color_discrete_map=cores)
+                    fig.update_traces(mode='lines+markers+text',
+                                      texttemplate='%{y}', textposition='top center',
+                                      line=dict(width=3), marker=dict(size=9))
+                    fig.update_layout(xaxis_title='Mês de referência',
+                                      yaxis_title='Quantidade de atividades',
+                                      legend_title_text='', height=350,
+                                      margin=dict(t=28, b=45, l=50, r=10),
+                                      font_color='#18243C',
+                                      paper_bgcolor='rgba(0,0,0,0)',
+                                      plot_bgcolor='rgba(0,0,0,0)',
+                                      legend=dict(orientation='h', y=1.18, x=0))
+                    fig.update_yaxes(rangemode='tozero', dtick=1, showgrid=True,
+                                     gridcolor='#D9DFEA', zeroline=False)
+                    fig.update_xaxes(showgrid=True, gridcolor='#E8ECF3',
+                                     type='category')
                     st.plotly_chart(fig, use_container_width=True)
             elif view.empty:
                 st.info('Nenhuma atividade corresponde aos filtros.')
             else:
                 field = 'Segmentação' if mode == 'Segmentação' else 'Responsável'
-                group = view.groupby([field, 'Situação']).size().reset_index(name='Quantidade')
-                fig = px.bar(group, x=field, y='Quantidade', color='Situação', barmode='stack',
-                             color_discrete_map={
-                                 'Concluída':TLOG_BLUE, 'Aprovada':TLOG_BLUE,
-                                 'Pendente':TLOG_YELLOW, 'Aguardando aprovação':TLOG_YELLOW,
-                                 'Atrasada':TLOG_RED})
-                fig.update_layout(xaxis_title='', legend_title='', height=340,
-                                  margin=dict(t=20,b=20), font_color='#18243C',
-                                  paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                chart_data = view[[field, 'Situação']].copy()
+                chart_data['Grupo'] = chart_data['Situação'].map(grupo_situacao)
+                group = (chart_data.groupby([field, 'Grupo']).size()
+                         .reset_index(name='Quantidade'))
+                fig = px.bar(group, x=field, y='Quantidade', color='Grupo',
+                             barmode='group', text='Quantidade',
+                             category_orders={'Grupo': nomes},
+                             color_discrete_map=cores)
+                fig.update_traces(textposition='outside', textfont_size=12,
+                                  cliponaxis=False)
+                fig.update_layout(xaxis_title=field,
+                                  yaxis_title='Quantidade de atividades',
+                                  legend_title_text='', height=350,
+                                  margin=dict(t=28, b=65, l=50, r=10),
+                                  font_color='#18243C',
+                                  paper_bgcolor='rgba(0,0,0,0)',
+                                  plot_bgcolor='rgba(0,0,0,0)',
+                                  legend=dict(orientation='h', y=1.18, x=0),
+                                  bargap=0.25, bargroupgap=0.08)
+                fig.update_yaxes(rangemode='tozero', dtick=1, showgrid=True,
+                                 gridcolor='#D9DFEA', zeroline=False)
+                fig.update_xaxes(showgrid=False, tickangle=-20,
+                                 automargin=True)
                 st.plotly_chart(fig, use_container_width=True)
         with right:
             st.subheader('Agenda de vencimentos')
