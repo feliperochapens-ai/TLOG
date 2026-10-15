@@ -229,6 +229,11 @@ def init_db():
         );
         """)
 
+        # Migração compatível com bancos já existentes.
+        segment_columns = {r[1] for r in c.execute("PRAGMA table_info(segments)").fetchall()}
+        if 'active' not in segment_columns:
+            c.execute('ALTER TABLE segments ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
+
         c.executemany(
             "INSERT OR IGNORE INTO segments(name) VALUES(?)",
             [
@@ -741,7 +746,7 @@ elif page.startswith('⚙'):
         )]
 
         segs = [dict(s) for s in rows(
-            'SELECT id,name FROM segments ORDER BY name'
+            'SELECT id,name,active FROM segments WHERE active=1 ORDER BY name'
         )]
         tasks=rows('SELECT t.*,s.name AS segment,u.name AS owner FROM tasks t JOIN segments s ON t.segment_id=s.id JOIN users u ON t.assignee_id=u.id ORDER BY t.id DESC')
         choices={'➕ Nova atividade':None,**{f"#{t['id']} · {t['title']}":t for t in tasks}}
@@ -751,6 +756,9 @@ elif page.startswith('⚙'):
         with st.form('task_form'):
             title = st.text_input('Atividade', value=item['title'] if item else '')
 
+            # Permite editar atividades antigas sem reativar a segmentação.
+            if item and not any(s['id'] == item['segment_id'] for s in segs):
+                segs = [dict(s) for s in rows('SELECT id,name,active FROM segments WHERE id=?', (item['segment_id'],))] + segs
             segment_index = next(
                 (i for i, s in enumerate(segs) if item and s['id'] == item['segment_id']),
                 0
@@ -760,7 +768,7 @@ elif page.startswith('⚙'):
                 'Segmentação',
                 segs,
                 index=segment_index,
-                format_func=lambda x: x['name']
+                format_func=lambda x: x['name'] + (' (desativada)' if not x['active'] else '')
             )
 
             assignee_index = next(
@@ -840,6 +848,41 @@ elif page.startswith('⚙'):
             if st.form_submit_button('Renomear') and newname.strip():
                 try:execute('UPDATE segments SET name=? WHERE id=?',(newname.strip(),old['id']));st.success('Segmentação renomeada.');st.rerun()
                 except sqlite3.IntegrityError:st.error('Já existe segmentação com esse nome.')
+
+        st.divider()
+        st.subheader('Desativar, reativar ou excluir segmentação')
+        st.caption('Desativar preserva o histórico e impede o uso em novos cadastros. Excluir só é permitido sem atividades vinculadas.')
+        manage_segments = [dict(r) for r in rows('SELECT id,name,active FROM segments ORDER BY name')]
+        if manage_segments:
+            target_seg = st.selectbox('Selecionar segmentação para gerenciar', manage_segments,
+                format_func=lambda x: x['name'] + (' · Desativada' if not x['active'] else ' · Ativa'),
+                key='manage_segment_choice')
+            linked_count = rows('SELECT COUNT(*) AS n FROM tasks WHERE segment_id=?', (target_seg['id'],))[0]['n']
+            st.caption(f'Atividades vinculadas: {linked_count}')
+            if st.button('Reativar segmentação' if not target_seg['active'] else 'Desativar segmentação',
+                         key='toggle_segment_active'):
+                execute('UPDATE segments SET active=? WHERE id=?',
+                        (0 if target_seg['active'] else 1, target_seg['id']))
+                st.success('Status da segmentação atualizado.'); st.rerun()
+            with st.form('delete_segment_form'):
+                st.warning('Exclusão definitiva: esta ação não pode ser desfeita.')
+                confirm_delete = st.checkbox('Confirmo que desejo excluir definitivamente esta segmentação.')
+                delete_clicked = st.form_submit_button('Excluir segmentação', disabled=bool(linked_count))
+                if delete_clicked:
+                    if not confirm_delete:
+                        st.error('Marque a confirmação antes de excluir.')
+                    else:
+                        # Conferência atômica para impedir exclusão se houver vínculos.
+                        with connect() as c:
+                            cur = c.execute('''DELETE FROM segments WHERE id=? AND NOT EXISTS (SELECT 1 FROM tasks WHERE segment_id=?)''',
+                                            (target_seg['id'], target_seg['id']))
+                            removed = cur.rowcount
+                        if removed:
+                            st.success('Segmentação excluída.'); st.rerun()
+                        else:
+                            st.error('Não foi possível excluir: existem atividades vinculadas.')
+            if linked_count:
+                st.info('Esta segmentação possui atividades vinculadas. Para preservar o histórico, utilize Desativar.')
 
     with tab4:
         st.subheader('Filiais / Unidades')
