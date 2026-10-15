@@ -40,45 +40,89 @@ def verify_pw(pw, stored):
         return hmac.compare_digest(hash_pw(pw,salt),stored)
     except Exception:return False
 
+
 def init_db():
     with connect() as c:
-        c.executescript('''CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT NOT NULL,username TEXT NOT NULL UNIQUE,password TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('admin','coordenador','colaborador')),active INTEGER DEFAULT 1);
-        CREATE TABLE IF NOT EXISTS segments(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE);
-        CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY,title TEXT NOT NULL,segment_id INTEGER NOT NULL REFERENCES segments(id),assignee_id INTEGER NOT NULL REFERENCES users(id),due_day INTEGER NOT NULL DEFAULT 10,working_day INTEGER NOT NULL DEFAULT 0,recurring INTEGER NOT NULL DEFAULT 1,requires_approval INTEGER NOT NULL DEFAULT 0,description TEXT DEFAULT '',active INTEGER NOT NULL DEFAULT 1);
-        CREATE TABLE IF NOT EXISTS instances(id INTEGER PRIMARY KEY,task_id INTEGER NOT NULL REFERENCES tasks(id),period TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',completed_at TEXT,completed_by INTEGER REFERENCES users(id),approved_at TEXT,approved_by INTEGER REFERENCES users(id),notes TEXT DEFAULT '',UNIQUE(task_id,period));
-        CREATE INDEX IF NOT EXISTS idx_instances_period ON instances(period);
+        c.executescript('''
+        CREATE TABLE IF NOT EXISTS users(
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('admin','coordenador','colaborador')),
+            active INTEGER DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS segments(
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        );
+
+        CREATE TABLE IF NOT EXISTS tasks(
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            segment_id INTEGER NOT NULL REFERENCES segments(id),
+            assignee_id INTEGER NOT NULL REFERENCES users(id),
+            due_day INTEGER NOT NULL DEFAULT 10,
+            working_day INTEGER NOT NULL DEFAULT 0,
+            recurring INTEGER NOT NULL DEFAULT 1,
+            requires_approval INTEGER NOT NULL DEFAULT 0,
+            description TEXT DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS instances(
+            id INTEGER PRIMARY KEY,
+            task_id INTEGER NOT NULL REFERENCES tasks(id),
+            period TEXT NOT NULL,
+            due_date TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Pendente',
+            completed_at TEXT,
+            completed_by INTEGER REFERENCES users(id),
+            approved_at TEXT,
+            approved_by INTEGER REFERENCES users(id),
+            notes TEXT DEFAULT '',
+            UNIQUE(task_id,period)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_instances_period
+        ON instances(period);
         ''')
-    if not c.execute('SELECT 1 FROM segments LIMIT 1').fetchone():
+
+        # Cadastrar as segmentações iniciais
         c.executemany(
             'INSERT OR IGNORE INTO segments(name) VALUES(?)',
             [
-                (x,) for x in [
-                    'Fechamento',
-                    'Lançamento de contas fixas',
-                    'Cartão de crédito'
-                ]
+                ('Fechamento',),
+                ('Lançamento de contas fixas',),
+                ('Cartão de crédito',)
             ]
         )
-c.executemany(
-    'INSERT OR IGNORE INTO segments(name) VALUES(?)',
-    [
-        (x,) for x in [
-            'Fechamento',
-            'Lançamento de contas fixas',
-            'Cartão de crédito'
-        ]
-    ]
 
-        )
+        # Criar o administrador inicial
+        if not c.execute(
+            'SELECT 1 FROM users LIMIT 1'
+        ).fetchone():
 
-    if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
-        pw = os.environ.get('TLOG_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
-        c.execute(
-            'INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',
-            ('Administrador', 'admin', hash_pw(pw), 'admin')
-        )
-        st.session_state['initial_password'] = pw
+            pw = (
+                os.environ.get('TLOG_ADMIN_PASSWORD')
+                or secrets.token_urlsafe(12)
+            )
 
+            c.execute(
+                '''
+                INSERT INTO users(name,username,password,role)
+                VALUES(?,?,?,?)
+                ''',
+                (
+                    'Administrador',
+                    'admin',
+                    hash_pw(pw),
+                    'admin'
+                )
+            )
+
+            st.session_state['initial_password'] = pw
 
 def q(sql,args=()):
     with connect() as c:return pd.read_sql_query(sql,c,params=args)
