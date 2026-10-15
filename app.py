@@ -48,7 +48,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS instances(id INTEGER PRIMARY KEY,task_id INTEGER NOT NULL REFERENCES tasks(id),period TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',completed_at TEXT,completed_by INTEGER REFERENCES users(id),approved_at TEXT,approved_by INTEGER REFERENCES users(id),notes TEXT DEFAULT '',UNIQUE(task_id,period));
         CREATE INDEX IF NOT EXISTS idx_instances_period ON instances(period);
         ''')
-        if not c.execute('SELECT 1 FROM segments LIMIT 1').fetchone():
+    if not c.execute('SELECT 1 FROM segments LIMIT 1').fetchone():
+        c.executemany(
+            'INSERT OR IGNORE INTO segments(name) VALUES(?)',
+            [
+                (x,) for x in [
+                    'Fechamento',
+                    'Lançamento de contas fixas',
+                    'Cartão de crédito'
+                ]
+            ]
+        )
 c.executemany(
     'INSERT OR IGNORE INTO segments(name) VALUES(?)',
     [
