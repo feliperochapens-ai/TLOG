@@ -68,10 +68,17 @@ c.executemany(
             'Cartão de crédito'
         ]
     ]
-)        if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
-            pw=os.environ.get('TLOG_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
-            c.execute('INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',('Administrador','admin',hash_pw(pw),'admin'))
-            st.session_state['initial_password']=pw
+
+        )
+
+    if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
+        pw = os.environ.get('TLOG_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
+        c.execute(
+            'INSERT INTO users(name,username,password,role) VALUES(?,?,?,?)',
+            ('Administrador', 'admin', hash_pw(pw), 'admin')
+        )
+        st.session_state['initial_password'] = pw
+
 
 def q(sql,args=()):
     with connect() as c:return pd.read_sql_query(sql,c,params=args)
