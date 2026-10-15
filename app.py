@@ -1,4 +1,4 @@
-import os, sqlite3, hashlib, hmac, secrets, calendar
+import os, sqlite3, hashlib, hmac, secrets, calendar, html
 from datetime import date, datetime, timedelta
 from io import BytesIO
 import pandas as pd
@@ -110,6 +110,13 @@ button[data-baseweb="tab"][aria-selected="true"] {
 [data-testid="stAlert"] p {
     color: inherit !important;
 }
+/* Botões de exportação: branco e letras pretas */
+[data-testid="stDownloadButton"] button {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    border: 1px solid #C8D1DF !important;
+}
+[data-testid="stDownloadButton"] button * { color: #000000 !important; }
 </style>
 """
 
@@ -182,6 +189,30 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_instances_period
         ON instances(period);
+        """)
+
+        c.executescript("""
+        CREATE TABLE IF NOT EXISTS branches(
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS licenses(
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            branch_id INTEGER NOT NULL REFERENCES branches(id),
+            issuer TEXT DEFAULT '', document_number TEXT DEFAULT '',
+            issued_on TEXT, expires_on TEXT NOT NULL,
+            responsible_id INTEGER REFERENCES users(id),
+            notes TEXT DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS license_renewals(
+            id INTEGER PRIMARY KEY,
+            license_id INTEGER NOT NULL REFERENCES licenses(id),
+            old_expires_on TEXT NOT NULL,
+            new_expires_on TEXT NOT NULL,
+            renewed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            renewed_by INTEGER REFERENCES users(id)
+        );
         """)
 
         c.executemany(
@@ -309,14 +340,14 @@ user=user[0];manager=user['role'] in ('admin','coordenador');admin=user['role']=
 with st.sidebar:
     st.markdown('## G R U P O  **TLOG**')
     st.caption(user['name']+' · '+user['role'].capitalize())
-    pages=['📊 Dashboard','☑️ Minhas atividades']+(['📋 Equipe e aprovações'] if manager else [])+(['⚙️ Administração'] if admin else [])+['🔒 Minha senha']
+    pages=['📊 Dashboard','📑 Dashboard Licenças','☑️ Minhas atividades']+(['📋 Equipe e aprovações'] if manager else [])+(['⚙️ Administração'] if admin else [])+['🔒 Minha senha']
     page=st.radio('Navegação',pages,label_visibility='collapsed')
     st.divider()
     if st.button('Sair',use_container_width=True):
         st.session_state.pop('user_id',None);st.rerun()
 
-st.markdown('<div class="tlog-head"><b>☰ &nbsp; G R U P O &nbsp; TLOG</b><b>Gestão de Atividades</b><small>'+user['name']+'</small></div>',unsafe_allow_html=True)
-st.markdown('<div class="tlog-banner"><h2>'+page[2:]+'</h2><p>Acompanhe e organize as atividades mensais da equipe.</p></div>',unsafe_allow_html=True)
+st.markdown('<div class="tlog-head"><b>G R U P O &nbsp; TLOG</b><b>Gestão de Atividades</b><small>'+user['name']+'</small></div>',unsafe_allow_html=True)
+st.markdown('<div class="tlog-banner"><h2>'+html.escape(page[2:])+'</h2><p>'+('Gestão de licenças, alvarás e vencimentos por filial.' if page.startswith('📑') else 'Acompanhe e organize as atividades mensais da equipe.')+'</p></div>',unsafe_allow_html=True)
 
 def pick_period(key='period'):
     today=date.today();months=pd.date_range(date(today.year-1,1,1),date(today.year+2,12,1),freq='MS')
@@ -330,152 +361,224 @@ if page.startswith('📊') or page.startswith('☑️') or page.startswith('📋
     if not manager:df=df[df['assignee_id']==user['id']].copy()
     if not df.empty:df['Situação']=df.apply(status_label,axis=1)
 
+# Componentes de visualização: cores padrão do Grupo TLOG.
+TLOG_BLUE = '#607BF0'
+TLOG_YELLOW = '#E8B247'
+TLOG_RED = '#DF4A59'
+
+
+def status_color(status):
+    if status in ('Concluída', 'Aprovada', 'Regular'):
+        return TLOG_BLUE
+    if status in ('Atrasada', 'Vencida'):
+        return TLOG_RED
+    return TLOG_YELLOW
+
+
+def styled_table(frame, *, expired_column=None, height=350, header_text='#FFFFFF'):
+    """Tabela HTML segura, com cabeçalho fixo e rolagem."""
+    if frame.empty:
+        st.info('Nenhum registro corresponde aos filtros.')
+        return
+    safe = frame.copy().fillna('')
+    html_table = safe.to_html(index=False, escape=True, border=0, classes='tlog-table')
+    if expired_column is not None:
+        import re
+        # A situação foi escapada pelo pandas; destaque apenas linhas com situação Vencida.
+        html_table = re.sub(r'<tr>(?:(?!</tr>).)*?<td>Vencida</td>(?:(?!</tr>).)*?</tr>',
+                            lambda m: m.group(0).replace('<tr>', '<tr class="expired">', 1),
+                            html_table, flags=re.DOTALL)
+    markup = '''<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    html,body{margin:0;background:#fff;font-family:Arial,sans-serif}
+    .wrap{height:HEIGHTpx;overflow:auto;border:1px solid #DDE4F0;border-radius:9px;background:#fff;box-sizing:border-box}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead th{position:sticky;top:0;z-index:1;background:#607BF0!important;color:HEADER!important;
+        font-weight:700;text-align:left;padding:11px 8px;white-space:nowrap}
+    tbody td{background:#fff;color:#000;border-bottom:1px solid #E4E9F3;padding:10px 8px}
+    tbody tr.expired td{background:#DF4A59!important;color:#fff!important;font-weight:600}
+    </style></head><body><div class="wrap">'''.replace('HEIGHT', str(height)).replace('HEADER', header_text) + html_table + '</div></body></html>'
+    components.html(markup, height=height + 8, scrolling=False)
+
+
+@st.dialog('Detalhamento de atividades', width='large')
+def activity_dialog(label, filtered, period):
+    st.subheader(label)
+    st.caption(f'Mês de referência: {period[5:7]}/{period[:4]} · {len(filtered)} atividade(s)')
+    cols = ['Atividade', 'Segmentação', 'Responsável', 'Prazo', 'Situação', 'Observações']
+    display = filtered[cols].copy()
+    if not display.empty:
+        display['Prazo'] = pd.to_datetime(display['Prazo']).dt.strftime('%d/%m/%Y')
+    styled_table(display, height=300)
+    st.download_button('⬇ Exportar atividades', excel_bytes(display),
+                       file_name=f'TLOG_detalhamento_{period}.xlsx',
+                       mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    if st.button('Fechar janela', key='close_activity_dialog'):
+        st.rerun()
+
+
+@st.dialog('Detalhamento de licenças', width='large')
+def licenses_dialog(label, filtered):
+    st.subheader(label)
+    st.caption(f'{len(filtered)} licença(s)')
+    cols = ['Licença', 'Filial', 'Vencimento', 'Situação']
+    styled_table(filtered[cols], expired_column='Situação', height=300, header_text='#000000')
+    st.download_button('⬇ Exportar licenças', excel_bytes(filtered[cols]),
+                       file_name='TLOG_licencas.xlsx',
+                       mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    if st.button('Fechar janela', key='close_license_dialog'):
+        st.rerun()
+
+
 if page.startswith('📊'):
     if df.empty:
         st.info('Nenhuma atividade cadastrada para este mês.')
-        st.stop()
+    else:
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            seg = st.multiselect('Segmentação', sorted(df['Segmentação'].dropna().unique()))
+        with f2:
+            people = st.multiselect('Responsável', sorted(df['Responsável'].dropna().unique()))
+        with f3:
+            statuses = st.multiselect('Situação', sorted(df['Situação'].dropna().unique()))
+        view = df.copy()
+        if seg:
+            view = view[view['Segmentação'].isin(seg)]
+        if people:
+            view = view[view['Responsável'].isin(people)]
+        if statuses:
+            view = view[view['Situação'].isin(statuses)]
 
-    filtro1, filtro2, filtro3 = st.columns(3)
-    with filtro1:
-        seg = st.multiselect('Segmentação', sorted(df['Segmentação'].dropna().unique()))
-    with filtro2:
-        people = st.multiselect('Responsável', sorted(df['Responsável'].dropna().unique()))
-    with filtro3:
-        statuses = st.multiselect('Situação', sorted(df['Situação'].dropna().unique()))
+        categories = [
+            ('Atividades previstas', view, TLOG_BLUE),
+            ('Concluídas / aprovadas', view[view['Situação'].isin(['Concluída', 'Aprovada'])], TLOG_BLUE),
+            ('Pendentes / em aprovação', view[view['Situação'].isin(['Pendente', 'Aguardando aprovação'])], TLOG_YELLOW),
+            ('Atrasadas', view[view['Situação'] == 'Atrasada'], TLOG_RED),
+        ]
+        card_cols = st.columns(4)
+        for i, ((label, subset, color), col) in enumerate(zip(categories, card_cols)):
+            with col:
+                st.markdown(f'<div style="background:#fff;border:1px solid #E4E9F3;border-top:4px solid {color};padding:10px 14px;border-radius:10px;color:#18243C"><div style="font-size:12px">{label}</div><div style="font-size:28px;font-weight:700">{len(subset)}</div></div>', unsafe_allow_html=True)
+                if st.button('Ver atividades ↗', key=f'activity_card_{i}', use_container_width=True):
+                    activity_dialog(label, subset, period)
+        done = len(categories[1][1])
+        total = len(view)
+        st.progress(done / total if total else 0, text=f'Progresso de conclusão: {done}/{total} ({done / total:.0%})' if total else 'Sem atividades')
 
-    view = df.copy()
-    if seg:
-        view = view[view['Segmentação'].isin(seg)]
-    if people:
-        view = view[view['Responsável'].isin(people)]
-    if statuses:
-        view = view[view['Situação'].isin(statuses)]
+        left, right = st.columns([1.15, 1], gap='large')
+        with left:
+            st.subheader('Análise de atividades')
+            mode = st.radio('Tipo de análise', ['Segmentação', 'Responsável', 'Histórico'],
+                            horizontal=True, label_visibility='collapsed')
+            if mode == 'Histórico':
+                # Histórico respeita mês, segmentação, responsável e situação selecionados.
+                first = (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m')
+                hsql = '''SELECT i.period AS Período, s.name AS Segmentação,
+                    u.name AS Responsável, i.status AS Status, i.due_date AS Prazo
+                    FROM instances i JOIN tasks t ON i.task_id=t.id
+                    JOIN segments s ON t.segment_id=s.id
+                    JOIN users u ON t.assignee_id=u.id
+                    WHERE i.period BETWEEN ? AND ?'''
+                args = [first, period]
+                if not manager:
+                    hsql += ' AND t.assignee_id=?'
+                    args.append(user['id'])
+                hist = q(hsql, tuple(args))
+                if not hist.empty:
+                    hist['Situação'] = hist.apply(status_label, axis=1)
+                    if seg:
+                        hist = hist[hist['Segmentação'].isin(seg)]
+                    if people:
+                        hist = hist[hist['Responsável'].isin(people)]
+                    if statuses:
+                        hist = hist[hist['Situação'].isin(statuses)]
+                if hist.empty:
+                    st.info('Sem histórico para os filtros selecionados.')
+                else:
+                    hist['Concluída'] = hist['Situação'].isin(['Concluída', 'Aprovada']).astype(int)
+                    monthly = hist.groupby('Período').agg(Total=('Concluída', 'size'), Concluídas=('Concluída', 'sum')).reset_index()
+                    monthly['Conclusão (%)'] = (100 * monthly['Concluídas'] / monthly['Total']).round(1)
+                    fig = px.line(monthly, x='Período', y='Conclusão (%)', markers=True,
+                                  range_y=[0, 100], color_discrete_sequence=[TLOG_BLUE])
+                    fig.update_layout(height=340, margin=dict(t=20,b=20), font_color='#18243C',
+                                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig, use_container_width=True)
+            elif view.empty:
+                st.info('Nenhuma atividade corresponde aos filtros.')
+            else:
+                field = 'Segmentação' if mode == 'Segmentação' else 'Responsável'
+                group = view.groupby([field, 'Situação']).size().reset_index(name='Quantidade')
+                fig = px.bar(group, x=field, y='Quantidade', color='Situação', barmode='stack',
+                             color_discrete_map={
+                                 'Concluída':TLOG_BLUE, 'Aprovada':TLOG_BLUE,
+                                 'Pendente':TLOG_YELLOW, 'Aguardando aprovação':TLOG_YELLOW,
+                                 'Atrasada':TLOG_RED})
+                fig.update_layout(xaxis_title='', legend_title='', height=340,
+                                  margin=dict(t=20,b=20), font_color='#18243C',
+                                  paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig, use_container_width=True)
+        with right:
+            st.subheader('Agenda de vencimentos')
+            agenda = view.sort_values(['Prazo', 'Atividade']).copy()
+            if not agenda.empty:
+                agenda['Vencimento'] = pd.to_datetime(agenda['Prazo']).dt.strftime('%d/%m/%Y')
+                agenda = agenda[['Vencimento', 'Atividade', 'Segmentação', 'Responsável', 'Situação']]
+                styled_table(agenda, height=338)
+                st.download_button('⬇ Exportar vencimentos', excel_bytes(agenda),
+                                   file_name=f'TLOG_vencimentos_{period}.xlsx',
+                                   mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            else:
+                st.info('Nenhum vencimento corresponde aos filtros.')
 
-    counts = view['Situação'].value_counts()
-    total = len(view)
-    done = int(counts.get('Concluída', 0) + counts.get('Aprovada', 0))
-    pending = int(counts.get('Pendente', 0) + counts.get('Aguardando aprovação', 0))
-    late = int(counts.get('Atrasada', 0))
-    cards = st.columns(4)
-    for col, (label, value, color) in zip(cards, [
-        ('Atividades previstas', total, '#3766d6'),
-        ('Concluídas / aprovadas', done, '#159d6d'),
-        ('Pendentes / em aprovação', pending, '#dfa224'),
-        ('Atrasadas', late, '#df4a59'),
-    ]):
-        col.markdown(
-            f'<div class="metric" style="--accent:{color}">'
-            f'<div class="label">{label}</div><div class="value">{value}</div></div>',
-            unsafe_allow_html=True,
-        )
-    st.write('')
-    st.progress(done / total if total else 0,
-                text=f'Progresso de conclusão: {done}/{total} ({done / total:.0%})' if total else 'Sem atividades')
+        st.subheader('Detalhamento')
+        detail_cols = ['Atividade', 'Segmentação', 'Responsável', 'Prazo', 'Situação', 'Conclusão', 'Observações']
+        st.dataframe(view[detail_cols], hide_index=True, use_container_width=True)
+        st.download_button('⬇ Exportar Excel', excel_bytes(view[detail_cols]),
+                           file_name=f'TLOG_atividades_{period}.xlsx',
+                           mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-    colors = {
-        'Concluída': '#19a474', 'Aprovada': '#168f66',
-        'Pendente': '#e8b247', 'Aguardando aprovação': '#6385eb',
-        'Atrasada': '#e0525d',
-    }
-    left, right = st.columns([1.2, 1], gap='large')
-    with left:
-        st.subheader('Análise de atividades')
-        if not view.empty:
-            group = view.groupby(['Segmentação', 'Situação']).size().reset_index(name='Quantidade')
-            fig = px.bar(group, x='Segmentação', y='Quantidade', color='Situação',
-                         barmode='stack', color_discrete_map=colors)
-            fig.update_layout(xaxis_title='', legend_title='', margin=dict(t=20, b=20),
-                              height=340, paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0)', font_color='#18243C')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info('Nenhuma atividade corresponde aos filtros.')
-
-    with right:
-        st.subheader('Agenda de vencimentos')
-        agenda = view.copy()
-        if not agenda.empty:
-            agenda['Vencimento'] = pd.to_datetime(agenda['Prazo']).dt.strftime('%d/%m/%Y')
-            agenda = agenda.sort_values(['Prazo', 'Atividade'])
-            agenda = agenda[['Vencimento', 'Atividade', 'Segmentação', 'Responsável', 'Situação']]
-            tabela_html = agenda.to_html(index=False, escape=True, border=0, classes='tlog-vencimentos')
-            # Renderização HTML isolada para preservar as cores do cabeçalho e das linhas.
-            html_agenda = """
-            <!DOCTYPE html>
-            <html lang="pt-BR">
-            <head><meta charset="utf-8" />
-            <style>
-                html, body {margin:0;padding:0;background:#FFFFFF;font-family:Arial,sans-serif;}
-                .tlog-agenda-scroll {height:338px;overflow:auto;border:1px solid #DDE4F0;border-radius:9px;background:#FFFFFF;box-sizing:border-box;}
-                table.tlog-vencimentos {width:100%;border-collapse:collapse;font-size:12px;}
-                table.tlog-vencimentos thead th {
-                    background:#607BF0 !important;color:#FFFFFF !important;
-                    font-weight:700;text-align:left;padding:12px 8px;
-                    position:sticky;top:0;z-index:1;white-space:nowrap;
-                }
-                table.tlog-vencimentos tbody td {
-                    color:#000000 !important;background:#FFFFFF !important;
-                    border-bottom:1px solid #E4E9F3;padding:10px 8px;
-                }
-                table.tlog-vencimentos tbody tr:nth-child(even) td {
-                    background:#FFFFFF !important;color:#000000 !important;
-                }
-            </style></head>
-            <body><div class="tlog-agenda-scroll">""" + tabela_html + """</div></body></html>"""
-            components.html(html_agenda, height=350, scrolling=False)
-            st.download_button('⬇ Exportar vencimentos', excel_bytes(agenda),
-                               file_name=f'TLOG_vencimentos_{period}.xlsx',
-                               mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        else:
-            st.info('Nenhum vencimento corresponde aos filtros.')
-
-    st.subheader('Desempenho por responsável')
-    if not view.empty:
-        performance = view.groupby(['Responsável', 'Situação']).size().reset_index(name='Quantidade')
-        fig_users = px.bar(performance, x='Responsável', y='Quantidade', color='Situação',
-                           barmode='stack', color_discrete_map=colors)
-        fig_users.update_layout(xaxis_title='', legend_title='', height=320,
-                                margin=dict(t=20, b=20), font_color='#18243C',
-                                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_users, use_container_width=True)
-
-    st.subheader('Distribuição das atividades')
-    if not view.empty:
-        dist = view.groupby('Situação').size().reset_index(name='Quantidade')
-        fig_pie = px.pie(dist, names='Situação', values='Quantidade', hole=.6,
-                         color='Situação', color_discrete_map=colors)
-        fig_pie.update_layout(height=310, font_color='#18243C',
-                              paper_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-    history = q('''SELECT i.period,s.name AS Segmentação,i.status,COUNT(*) AS quantidade
-                   FROM instances i JOIN tasks t ON i.task_id=t.id
-                   JOIN segments s ON t.segment_id=s.id
-                   JOIN users u ON t.assignee_id=u.id
-                   WHERE i.period<=? AND i.period>=? '''
-                + ('AND t.assignee_id=? ' if not manager else '')
-                + ''' GROUP BY i.period,s.name,i.status''',
-                (period, (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m'), user['id'])
-                if not manager else
-                (period, (date.fromisoformat(period + '-01') - timedelta(days=180)).strftime('%Y-%m')))
-    if not history.empty:
-        history['ok'] = history['status'].isin(['Concluída', 'Aprovada'])
-        h = history.groupby(['period', 'Segmentação', 'ok'])['quantidade'].sum().unstack(fill_value=0)
-        ok = h[True] if True in h.columns else pd.Series(0, index=h.index)
-        not_ok = h[False] if False in h.columns else pd.Series(0, index=h.index)
-        h['Conclusão (%)'] = (100 * ok / (ok + not_ok).replace(0, 1)).round(1)
-        h = h.reset_index()
-        fig_history = px.line(h, x='period', y='Conclusão (%)', color='Segmentação',
-                              markers=True, title='Evolução histórica por segmentação', range_y=[0, 100])
-        st.plotly_chart(fig_history, use_container_width=True)
-
-    st.subheader('Detalhamento')
-    detail_cols = ['Atividade', 'Segmentação', 'Responsável', 'Prazo',
-                   'Situação', 'Conclusão', 'Observações']
-    st.dataframe(view[detail_cols], hide_index=True, use_container_width=True)
-    st.download_button('⬇ Exportar Excel', excel_bytes(view[detail_cols]),
-                       file_name=f'TLOG_atividades_{period}.xlsx',
-                       mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+elif page.startswith('📑'):
+    st.caption('Acompanhamento de licenças e alvarás cadastrados por unidade.')
+    raw = q('''SELECT l.id, l.name AS Licença, b.name AS Filial,
+        l.issuer AS Órgão, l.document_number AS Número,
+        l.issued_on AS Emissão, l.expires_on AS Data_vencimento,
+        u.name AS Responsável, l.notes AS Observações
+        FROM licenses l JOIN branches b ON l.branch_id=b.id
+        LEFT JOIN users u ON l.responsible_id=u.id
+        WHERE l.active=1 ORDER BY l.expires_on, l.name''')
+    if raw.empty:
+        st.info('Nenhuma licença cadastrada. Um administrador pode cadastrar filiais e licenças em Administração → Licenças.')
+    else:
+        today = date.today()
+        raw['Dias restantes'] = (pd.to_datetime(raw['Data_vencimento']).dt.date - today).apply(lambda d: d.days)
+        raw['Situação'] = raw['Dias restantes'].apply(lambda d: 'Vencida' if d < 0 else ('A vencer' if d <= 30 else 'Regular'))
+        raw['Vencimento'] = pd.to_datetime(raw['Data_vencimento']).dt.strftime('%d/%m/%Y')
+        bcol, scol = st.columns(2)
+        with bcol:
+            selected_branches = st.multiselect('Filial / Unidade', sorted(raw['Filial'].unique()))
+        with scol:
+            selected_status = st.multiselect('Situação da licença', ['Regular', 'A vencer', 'Vencida'])
+        lv = raw.copy()
+        if selected_branches:
+            lv = lv[lv['Filial'].isin(selected_branches)]
+        if selected_status:
+            lv = lv[lv['Situação'].isin(selected_status)]
+        license_cards = [
+            ('Total', lv, TLOG_BLUE),
+            ('Regulares', lv[lv['Situação']=='Regular'], TLOG_BLUE),
+            ('A vencer (30 dias)', lv[lv['Situação']=='A vencer'], TLOG_YELLOW),
+            ('Vencidas', lv[lv['Situação']=='Vencida'], TLOG_RED),
+        ]
+        for i, ((label, subset, color), col) in enumerate(zip(license_cards, st.columns(4))):
+            with col:
+                st.markdown(f'<div style="background:#fff;border:1px solid #E4E9F3;border-top:4px solid {color};padding:10px 14px;border-radius:10px;color:#18243C"><div style="font-size:12px">{label}</div><div style="font-size:28px;font-weight:700">{len(subset)}</div></div>', unsafe_allow_html=True)
+                if st.button('Ver licenças ↗', key=f'license_card_{i}', use_container_width=True):
+                    licenses_dialog(label, subset)
+        st.subheader('Controle de licenças e vencimentos')
+        license_cols = ['Licença', 'Filial', 'Vencimento', 'Situação']
+        styled_table(lv[license_cols], expired_column='Situação', height=380, header_text='#000000')
+        st.download_button('⬇ Exportar licenças', excel_bytes(lv[license_cols]),
+                           file_name='TLOG_licencas.xlsx',
+                           mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 elif page.startswith('☑️'):
     mine=df[df['assignee_id']==user['id']].copy()
@@ -520,7 +623,7 @@ elif page.startswith('📋'):
                 execute('INSERT OR IGNORE INTO instances(task_id,period,due_date) VALUES(?,?,?)',(t['id'],period,due_date(year,month,t['due_day'],t['working_day']).isoformat()));st.rerun()
 
 elif page.startswith('⚙'):
-    tab1, tab2, tab3 = st.tabs(['Atividades', 'Usuários', 'Segmentações'])
+    tab1, tab2, tab3, tab4 = st.tabs(['Atividades', 'Usuários', 'Segmentações', 'Licenças'])
 
     with tab1:
         users = [dict(u) for u in rows(
@@ -627,6 +730,68 @@ elif page.startswith('⚙'):
             if st.form_submit_button('Renomear') and newname.strip():
                 try:execute('UPDATE segments SET name=? WHERE id=?',(newname.strip(),old['id']));st.success('Segmentação renomeada.');st.rerun()
                 except sqlite3.IntegrityError:st.error('Já existe segmentação com esse nome.')
+
+    with tab4:
+        st.subheader('Filiais / Unidades')
+        with st.form('new_branch', clear_on_submit=True):
+            new_branch = st.text_input('Nome da filial')
+            if st.form_submit_button('Cadastrar filial'):
+                if not new_branch.strip():
+                    st.error('Informe o nome da filial.')
+                else:
+                    try:
+                        execute('INSERT INTO branches(name) VALUES(?)', (new_branch.strip(),))
+                        st.success('Filial cadastrada.'); st.rerun()
+                    except sqlite3.IntegrityError:
+                        st.error('Esta filial já está cadastrada.')
+        branches = [dict(x) for x in rows('SELECT id,name FROM branches WHERE active=1 ORDER BY name')]
+        st.subheader('Cadastro e renovação de licenças')
+        if not branches:
+            st.info('Cadastre ao menos uma filial antes de cadastrar licenças.')
+        else:
+            license_list = [dict(x) for x in rows('SELECT * FROM licenses ORDER BY name')]
+            opts = {'➕ Nova licença':None, **{f"#{x['id']} · {x['name']}":x for x in license_list}}
+            selected = st.selectbox('Criar ou editar licença', list(opts))
+            current = opts[selected]
+            users_for_license = [dict(x) for x in rows('SELECT id,name FROM users WHERE active=1 ORDER BY name')]
+            with st.form('license_form'):
+                license_name = st.text_input('Licença / Alvará', value=current['name'] if current else '')
+                branch_idx = next((i for i,b in enumerate(branches) if current and b['id']==current['branch_id']),0)
+                chosen_branch = st.selectbox('Filial', branches, index=branch_idx, format_func=lambda x:x['name'])
+                issuer = st.text_input('Órgão emissor', value=current['issuer'] or '' if current else '')
+                number = st.text_input('Número do documento', value=current['document_number'] or '' if current else '')
+                issue_date = st.date_input('Data de emissão', value=date.fromisoformat(current['issued_on']) if current and current['issued_on'] else None)
+                expiry_date = st.date_input('Vencimento', value=date.fromisoformat(current['expires_on']) if current else date.today())
+                user_options = [None] + users_for_license
+                owner_idx = next((i for i,u in enumerate(user_options) if u and current and u['id']==current['responsible_id']),0)
+                owner = st.selectbox('Responsável', user_options, index=owner_idx, format_func=lambda x:x['name'] if x else 'Não definido')
+                notes = st.text_area('Observações', value=current['notes'] or '' if current else '')
+                active_license = st.checkbox('Licença ativa', value=bool(current['active']) if current else True)
+                if st.form_submit_button('Salvar licença', type='primary'):
+                    if not license_name.strip():
+                        st.error('Informe o nome da licença.')
+                    elif current:
+                        if current['expires_on'] != expiry_date.isoformat():
+                            execute('INSERT INTO license_renewals(license_id,old_expires_on,new_expires_on,renewed_by) VALUES(?,?,?,?)',
+                                    (current['id'], current['expires_on'], expiry_date.isoformat(), user['id']))
+                        execute('''UPDATE licenses SET name=?,branch_id=?,issuer=?,document_number=?,issued_on=?,
+                                expires_on=?,responsible_id=?,notes=?,active=? WHERE id=?''',
+                                (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
+                                 expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license),current['id']))
+                        st.success('Licença atualizada.'); st.rerun()
+                    else:
+                        execute('''INSERT INTO licenses(name,branch_id,issuer,document_number,issued_on,expires_on,responsible_id,notes,active)
+                                VALUES(?,?,?,?,?,?,?,?,?)''',
+                                (license_name.strip(),chosen_branch['id'],issuer,number,issue_date.isoformat() if issue_date else None,
+                                 expiry_date.isoformat(),owner['id'] if owner else None,notes,int(active_license)))
+                        st.success('Licença cadastrada.'); st.rerun()
+            st.subheader('Histórico de alterações de vencimento')
+            renewals = q('''SELECT l.name AS Licença, b.name AS Filial, r.old_expires_on AS Vencimento_anterior,
+                r.new_expires_on AS Novo_vencimento, r.renewed_at AS Alterado_em, u.name AS Alterado_por
+                FROM license_renewals r JOIN licenses l ON r.license_id=l.id
+                JOIN branches b ON l.branch_id=b.id
+                LEFT JOIN users u ON r.renewed_by=u.id ORDER BY r.renewed_at DESC''')
+            st.dataframe(renewals, hide_index=True, use_container_width=True)
 
 elif page.startswith('🔒'):
     with st.form('password'):
