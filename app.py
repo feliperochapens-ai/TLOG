@@ -397,8 +397,23 @@ if page.startswith('📊'):
             agenda['Vencimento'] = pd.to_datetime(agenda['Prazo']).dt.strftime('%d/%m/%Y')
             agenda = agenda.sort_values(['Prazo', 'Atividade'])
             agenda = agenda[['Vencimento', 'Atividade', 'Segmentação', 'Responsável', 'Situação']]
-            st.dataframe(agenda, hide_index=True, use_container_width=True,
-                         height=340)
+            tabela_html = agenda.to_html(index=False, escape=True, border=0, classes='tlog-vencimentos')
+            st.markdown('''
+            <style>
+            .tlog-agenda-scroll {max-height:340px;overflow:auto;border:1px solid #DDE4F0;border-radius:9px;background:#FFFFFF;}
+            .tlog-agenda-scroll table.tlog-vencimentos {width:100%;border-collapse:collapse;font-size:12px;}
+            .tlog-agenda-scroll table.tlog-vencimentos thead th {
+                background:#607BF0 !important;color:#FFFFFF !important;
+                font-weight:700;text-align:left;padding:12px 8px;
+                position:sticky;top:0;z-index:1;white-space:nowrap;
+            }
+            .tlog-agenda-scroll table.tlog-vencimentos tbody td {
+                color:#000000 !important;background:#FFFFFF !important;
+                border-bottom:1px solid #E4E9F3;padding:10px 8px;
+            }
+            .tlog-agenda-scroll table.tlog-vencimentos tbody tr:nth-child(even) td {background:#FFFFFF !important;color:#000000 !important;}
+            </style>
+            <div class="tlog-agenda-scroll">''' + tabela_html + '</div>', unsafe_allow_html=True)
             st.download_button('⬇ Exportar vencimentos', excel_bytes(agenda),
                                file_name=f'TLOG_vencimentos_{period}.xlsx',
                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
