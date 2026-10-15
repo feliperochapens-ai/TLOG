@@ -410,16 +410,35 @@ elif page.startswith('📋'):
 elif page.startswith('⚙️'):
     tab1,tab2,tab3=st.tabs(['Atividades','Usuários','Segmentações'])
     with tab1:
-        users=rows('SELECT id,name FROM users WHERE active=1 ORDER BY name')
-        segs=rows('SELECT id,name FROM segments ORDER BY name')
+          users = [dict(u) for u in rows(
+            'SELECT id,name FROM users WHERE active=1 ORDER BY name'
+        )]
+
+        segs = [dict(s) for s in rows(
+            'SELECT id,name FROM segments ORDER BY name'
+        )]
         tasks=rows('SELECT t.*,s.name AS segment,u.name AS owner FROM tasks t JOIN segments s ON t.segment_id=s.id JOIN users u ON t.assignee_id=u.id ORDER BY t.id DESC')
         choices={'➕ Nova atividade':None,**{f"#{t['id']} · {t['title']}":t for t in tasks}}
         selected=st.selectbox('Criar ou editar',list(choices))
         item=choices[selected]
         with st.form('task_form'):
             title=st.text_input('Atividade',value=item['title'] if item else '')
-            segment=st.selectbox('Segmentação',segs,index=next((i for i,s in enumerate(segs) if item and s['id']==item['segment_id']),0),format_func=lambda x:x['name'])
-            assignee=st.selectbox('Responsável',users,index=next((i for i,u in enumerate(users) if item and u['id']==item['assignee_id']),0),format_func=lambda x:x['name'])
+           segment_index = next(
+                    (i for i, s in enumerate(segs) if item and s["id"] == item["segment_id"]),
+                    0
+                )
+                segment = st.selectbox(
+                    "Segmentação",
+                    segs,
+                    index=segment_index,
+                    format_func=lambda x: x["name"]
+                )
+                assignee = st.selectbox(
+                    "Responsável",
+                    users,
+                    index=next((i for i, u in enumerate(users) if item and u["id"] == item["assignee_id"]), 0),
+                    format_func=lambda x: x["name"]
+                )
             due=st.number_input('Dia do vencimento',1,31,value=item['due_day'] if item else 10)
             working=st.checkbox('Contar como dia útil (segunda a sexta, sem feriados)',value=bool(item['working_day']) if item else False)
             recurring=st.checkbox('Repetir mensalmente',value=bool(item['recurring']) if item else True)
