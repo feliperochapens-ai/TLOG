@@ -24,10 +24,10 @@ div[data-testid="stForm"]{background:white;border-radius:12px;padding:15px;borde
 st.markdown(CSS, unsafe_allow_html=True)
 
 def connect():
-    c=sqlite3.connect(DB,timeout=20)
-    c.row_factory=sqlite3.Row
-    c.execute('PRAGMA journal_mode=WAL')
-    c.execute('PRAGMA foreign_keys=ON')
+    c = sqlite3.connect(DB, timeout=20)
+    c.row_factory = sqlite3.Row
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA foreign_keys=ON")
     return c
 
 def hash_pw(pw, salt=None):
