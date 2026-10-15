@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from io import BytesIO
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -710,6 +711,52 @@ elif page.startswith('📑'):
             lv = lv[lv['Filial'].isin(selected_branches)]
         if selected_status:
             lv = lv[lv['Situação'].isin(selected_status)]
+        # Indicador de regularidade: usa todas as licenças ativas das filiais
+        # selecionadas, independentemente do filtro de situação. Assim, filtrar
+        # apenas 'Regular' não gera um percentual artificial de 100%.
+        gauge_data = raw[raw['Filial'].isin(selected_branches)] if selected_branches else raw
+        gauge_total = len(gauge_data)
+        gauge_expired = int((gauge_data['Situação'] == 'Vencida').sum())
+        gauge_upcoming = int((gauge_data['Situação'] == 'A vencer').sum())
+        gauge_current = gauge_total - gauge_expired
+        gauge_pct = 100.0 * gauge_current / gauge_total if gauge_total else 0.0
+        gauge_color = '#16A34A' if gauge_pct == 100 else ('#E8B247' if gauge_pct >= 80 else '#DF4A59')
+
+        st.subheader('Regularidade das licenças')
+        st.caption('Percentual de licenças ativas dentro do prazo, considerando as filiais selecionadas. Licenças a vencer em até 30 dias ainda estão em dia.')
+        gauge_col, info_col = st.columns([1.4, 1])
+        with gauge_col:
+            gauge = go.Figure(go.Indicator(
+                mode='gauge+number',
+                value=gauge_pct,
+                number={'suffix': '%', 'valueformat': '.0f', 'font': {'size': 43, 'color': '#18243C'}},
+                gauge={
+                    'shape': 'angular',
+                    'axis': {'range': [0, 100], 'visible': False},
+                    'bar': {'color': gauge_color, 'thickness': 0.33},
+                    'bgcolor': '#E9EDF5',
+                    'borderwidth': 0,
+                    'steps': [{'range': [0, 100], 'color': '#E9EDF5'}],
+                },
+                domain={'x': [0, 1], 'y': [0, 1]},
+            ))
+            gauge.update_layout(
+                height=225, margin=dict(l=25, r=25, t=15, b=10),
+                paper_bgcolor='rgba(0,0,0,0)',
+                font={'color': '#18243C'},
+            )
+            st.plotly_chart(gauge, use_container_width=True, config={'displayModeBar': False})
+        with info_col:
+            st.metric('Licenças em dia', f'{gauge_current} de {gauge_total}')
+            st.metric('Licenças vencidas', gauge_expired)
+            if gauge_upcoming:
+                st.warning(f'⚠️ {gauge_upcoming} licença(s) vencem nos próximos 30 dias.')
+            elif gauge_total:
+                st.success('Nenhuma licença com vencimento nos próximos 30 dias.')
+            else:
+                st.info('Não há licenças ativas para as filiais selecionadas.')
+        st.caption('O filtro de Situação altera a lista abaixo, mas não distorce o indicador de regularidade.')
+
         license_cards = [
             ('Total', lv, TLOG_BLUE),
             ('Regulares', lv[lv['Situação']=='Regular'], TLOG_BLUE),
