@@ -422,24 +422,34 @@ elif page.startswith('⚙'):
         choices={'➕ Nova atividade':None,**{f"#{t['id']} · {t['title']}":t for t in tasks}}
         selected=st.selectbox('Criar ou editar',list(choices))
         item=choices[selected]
+       
         with st.form('task_form'):
-            title=st.text_input('Atividade',value=item['title'] if item else '')
-           segment_index = next(
-                    (i for i, s in enumerate(segs) if item and s["id"] == item["segment_id"]),
-                    0
-                )
-                segment = st.selectbox(
-                    "Segmentação",
-                    segs,
-                    index=segment_index,
-                    format_func=lambda x: x["name"]
-                )
-                assignee = st.selectbox(
-                    "Responsável",
-                    users,
-                    index=next((i for i, u in enumerate(users) if item and u["id"] == item["assignee_id"]), 0),
-                    format_func=lambda x: x["name"]
-                )
+            title = st.text_input('Atividade', value=item['title'] if item else '')
+
+            segment_index = next(
+                (i for i, s in enumerate(segs) if item and s['id'] == item['segment_id']),
+                0
+            )
+
+            segment = st.selectbox(
+                'Segmentação',
+                segs,
+                index=segment_index,
+                format_func=lambda x: x['name']
+            )
+
+            assignee_index = next(
+                (i for i, u in enumerate(users) if item and u['id'] == item['assignee_id']),
+                0
+            )
+
+            assignee = st.selectbox(
+                'Responsável',
+                users,
+                index=assignee_index,
+                format_func=lambda x: x['name']
+            )
+
             due=st.number_input('Dia do vencimento',1,31,value=item['due_day'] if item else 10)
             working=st.checkbox('Contar como dia útil (segunda a sexta, sem feriados)',value=bool(item['working_day']) if item else False)
             recurring=st.checkbox('Repetir mensalmente',value=bool(item['recurring']) if item else True)
