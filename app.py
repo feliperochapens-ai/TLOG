@@ -8,7 +8,9 @@ import streamlit as st
 st.set_page_config(page_title='TLOG | Gestão de Atividades', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 DB = os.environ.get('TLOG_DB_PATH', os.path.join(os.path.dirname(__file__), 'atividades.db'))
 CSS = """
+<style>
 
+}
 /* Textos dos campos */
 [data-testid="stWidgetLabel"] p {
     color: #172b4d !important;
