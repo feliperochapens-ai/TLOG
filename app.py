@@ -407,10 +407,11 @@ elif page.startswith('📋'):
                 year,month=map(int,period.split('-'))
                 execute('INSERT OR IGNORE INTO instances(task_id,period,due_date) VALUES(?,?,?)',(t['id'],period,due_date(year,month,t['due_day'],t['working_day']).isoformat()));st.rerun()
 
-elif page.startswith('⚙️'):
-    tab1,tab2,tab3=st.tabs(['Atividades','Usuários','Segmentações'])
+elif page.startswith('⚙'):
+    tab1, tab2, tab3 = st.tabs(['Atividades', 'Usuários', 'Segmentações'])
+
     with tab1:
-          users = [dict(u) for u in rows(
+        users = [dict(u) for u in rows(
             'SELECT id,name FROM users WHERE active=1 ORDER BY name'
         )]
 
