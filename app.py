@@ -479,8 +479,11 @@ elif page.startswith('⚙'):
         users_all=rows('SELECT id,name,username,role,active FROM users ORDER BY name')
         st.dataframe(pd.DataFrame([dict(x) for x in users_all]),hide_index=True,use_container_width=True)
         with st.form('edit_user'):
-            target=st.selectbox('Editar usuário',users_all,format_func=lambda x:f"{x['name']} ({x['username']})")
-            newrole=st.selectbox('Perfil', ['colaborador','coordenador','admin'],index=['colaborador','coordenador','admin'].index(target['role']))
+        target = st.selectbox(
+            'Editar usuário',
+            [dict(u) for u in users_all],
+            format_func=lambda x: f"{x['name']} ({x['username']})"
+        )            newrole=st.selectbox('Perfil', ['colaborador','coordenador','admin'],index=['colaborador','coordenador','admin'].index(target['role']))
             newpw=st.text_input('Nova senha (deixe vazio para manter)',type='password')
             active=st.checkbox('Ativo',value=bool(target['active']))
             if st.form_submit_button('Atualizar usuário'):
