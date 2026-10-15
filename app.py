@@ -152,6 +152,21 @@ button[data-baseweb="tab"][aria-selected="true"] {
     color: #242424 !important;
 }
 
+/* Dashboard Licenças: botões dos quatro cartões de indicadores */
+:is(.st-key-license_card_0, .st-key-license_card_1, .st-key-license_card_2, .st-key-license_card_3) [data-testid="stButton"] button {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #C9CED8 !important;
+    opacity: 1 !important;
+}
+:is(.st-key-license_card_0, .st-key-license_card_1, .st-key-license_card_2, .st-key-license_card_3) [data-testid="stButton"] button * {
+    color: #111111 !important;
+}
+:is(.st-key-license_card_0, .st-key-license_card_1, .st-key-license_card_2, .st-key-license_card_3) [data-testid="stButton"] button:hover:not(:disabled) {
+    background-color: #F1F4FC !important;
+    border-color: #607BF0 !important;
+}
+
 /* Opções selecionadas nos filtros multisseleção: identidade azul TLOG */
 [data-baseweb="tag"] {
     background-color: #607BF0 !important;
