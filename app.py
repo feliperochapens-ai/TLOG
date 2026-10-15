@@ -118,6 +118,39 @@ button[data-baseweb="tab"][aria-selected="true"] {
 }
 [data-testid="stDownloadButton"] button * { color: #000000 !important; }
 
+/* Administração > Segmentações: botões brancos com texto preto */
+.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button,
+.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #C9CED8 !important;
+    opacity: 1 !important;
+}
+.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button *,
+.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button * {
+    color: #111111 !important;
+}
+.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:hover:not(:disabled),
+.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:hover:not(:disabled) {
+    background: #F1F4FC !important;
+    border-color: #607BF0 !important;
+}
+.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:disabled,
+.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:disabled {
+    background: #F0F1F4 !important;
+    color: #747B88 !important;
+    border-color: #D8DCE4 !important;
+    cursor: not-allowed !important;
+}
+.st-key-segmentacoes_admin_estilo [data-testid="stButton"] button:disabled *,
+.st-key-segmentacoes_admin_estilo [data-testid="stFormSubmitButton"] button:disabled * {
+    color: #747B88 !important;
+}
+/* Texto legível no alerta de exclusão */
+.st-key-segmentacoes_admin_estilo [data-testid="stAlert"] p {
+    color: #242424 !important;
+}
+
 /* Opções selecionadas nos filtros multisseleção: identidade azul TLOG */
 [data-baseweb="tag"] {
     background-color: #607BF0 !important;
@@ -829,60 +862,61 @@ elif page.startswith('⚙'):
                     if newpw:execute('UPDATE users SET password=? WHERE id=?',(hash_pw(newpw),target['id']))
                     st.success('Usuário atualizado.');st.rerun()
     with tab3:
-        st.dataframe(q('SELECT * FROM segments ORDER BY name'),hide_index=True,use_container_width=True)
-        with st.form('new_seg'):
-            newseg=st.text_input('Nome da nova segmentação')
-            if st.form_submit_button('Adicionar segmentação'):
-                try:execute('INSERT INTO segments(name) VALUES(?)',(newseg.strip(),));st.success('Segmentação criada.');st.rerun()
-                except sqlite3.IntegrityError:st.error('Segmentação já existe.')
-        with st.form('edit_seg'):
-            seglist=rows('SELECT * FROM segments ORDER BY name')
+        with st.container(key="segmentacoes_admin_estilo"):
+            st.dataframe(q('SELECT * FROM segments ORDER BY name'),hide_index=True,use_container_width=True)
+            with st.form('new_seg'):
+                newseg=st.text_input('Nome da nova segmentação')
+                if st.form_submit_button('Adicionar segmentação'):
+                    try:execute('INSERT INTO segments(name) VALUES(?)',(newseg.strip(),));st.success('Segmentação criada.');st.rerun()
+                    except sqlite3.IntegrityError:st.error('Segmentação já existe.')
+            with st.form('edit_seg'):
+                seglist=rows('SELECT * FROM segments ORDER BY name')
             
-            old = st.selectbox(
-                'Renomear segmentação',
-                [dict(s) for s in seglist],
-                format_func=lambda x: x['name']
-            )
-            newname = st.text_input('Novo nome')
+                old = st.selectbox(
+                    'Renomear segmentação',
+                    [dict(s) for s in seglist],
+                    format_func=lambda x: x['name']
+                )
+                newname = st.text_input('Novo nome')
 
-            if st.form_submit_button('Renomear') and newname.strip():
-                try:execute('UPDATE segments SET name=? WHERE id=?',(newname.strip(),old['id']));st.success('Segmentação renomeada.');st.rerun()
-                except sqlite3.IntegrityError:st.error('Já existe segmentação com esse nome.')
+                if st.form_submit_button('Renomear') and newname.strip():
+                    try:execute('UPDATE segments SET name=? WHERE id=?',(newname.strip(),old['id']));st.success('Segmentação renomeada.');st.rerun()
+                    except sqlite3.IntegrityError:st.error('Já existe segmentação com esse nome.')
 
-        st.divider()
-        st.subheader('Desativar, reativar ou excluir segmentação')
-        st.caption('Desativar preserva o histórico e impede o uso em novos cadastros. Excluir só é permitido sem atividades vinculadas.')
-        manage_segments = [dict(r) for r in rows('SELECT id,name,active FROM segments ORDER BY name')]
-        if manage_segments:
-            target_seg = st.selectbox('Selecionar segmentação para gerenciar', manage_segments,
-                format_func=lambda x: x['name'] + (' · Desativada' if not x['active'] else ' · Ativa'),
-                key='manage_segment_choice')
-            linked_count = rows('SELECT COUNT(*) AS n FROM tasks WHERE segment_id=?', (target_seg['id'],))[0]['n']
-            st.caption(f'Atividades vinculadas: {linked_count}')
-            if st.button('Reativar segmentação' if not target_seg['active'] else 'Desativar segmentação',
-                         key='toggle_segment_active'):
-                execute('UPDATE segments SET active=? WHERE id=?',
-                        (0 if target_seg['active'] else 1, target_seg['id']))
-                st.success('Status da segmentação atualizado.'); st.rerun()
-            with st.form('delete_segment_form'):
-                st.warning('Exclusão definitiva: esta ação não pode ser desfeita.')
-                confirm_delete = st.checkbox('Confirmo que desejo excluir definitivamente esta segmentação.')
-                delete_clicked = st.form_submit_button('Excluir segmentação', disabled=bool(linked_count))
-                if delete_clicked:
-                    if not confirm_delete:
-                        st.error('Marque a confirmação antes de excluir.')
-                    else:
-                        # Conferência atômica para impedir exclusão se houver vínculos.
-                        with connect() as c:
-                            cur = c.execute('''DELETE FROM segments WHERE id=? AND NOT EXISTS (SELECT 1 FROM tasks WHERE segment_id=?)''',
-                                            (target_seg['id'], target_seg['id']))
-                            removed = cur.rowcount
-                        if removed:
-                            st.success('Segmentação excluída.'); st.rerun()
+            st.divider()
+            st.subheader('Desativar, reativar ou excluir segmentação')
+            st.caption('Desativar preserva o histórico e impede o uso em novos cadastros. Excluir só é permitido sem atividades vinculadas.')
+            manage_segments = [dict(r) for r in rows('SELECT id,name,active FROM segments ORDER BY name')]
+            if manage_segments:
+                target_seg = st.selectbox('Selecionar segmentação para gerenciar', manage_segments,
+                    format_func=lambda x: x['name'] + (' · Desativada' if not x['active'] else ' · Ativa'),
+                    key='manage_segment_choice')
+                linked_count = rows('SELECT COUNT(*) AS n FROM tasks WHERE segment_id=?', (target_seg['id'],))[0]['n']
+                st.caption(f'Atividades vinculadas: {linked_count}')
+                if st.button('Reativar segmentação' if not target_seg['active'] else 'Desativar segmentação',
+                             key='toggle_segment_active'):
+                    execute('UPDATE segments SET active=? WHERE id=?',
+                            (0 if target_seg['active'] else 1, target_seg['id']))
+                    st.success('Status da segmentação atualizado.'); st.rerun()
+                with st.form('delete_segment_form'):
+                    st.warning('Exclusão definitiva: esta ação não pode ser desfeita.')
+                    confirm_delete = st.checkbox('Confirmo que desejo excluir definitivamente esta segmentação.')
+                    delete_clicked = st.form_submit_button('Excluir segmentação', disabled=bool(linked_count))
+                    if delete_clicked:
+                        if not confirm_delete:
+                            st.error('Marque a confirmação antes de excluir.')
                         else:
-                            st.error('Não foi possível excluir: existem atividades vinculadas.')
-            if linked_count:
-                st.info('Esta segmentação possui atividades vinculadas. Para preservar o histórico, utilize Desativar.')
+                            # Conferência atômica para impedir exclusão se houver vínculos.
+                            with connect() as c:
+                                cur = c.execute('''DELETE FROM segments WHERE id=? AND NOT EXISTS (SELECT 1 FROM tasks WHERE segment_id=?)''',
+                                                (target_seg['id'], target_seg['id']))
+                                removed = cur.rowcount
+                            if removed:
+                                st.success('Segmentação excluída.'); st.rerun()
+                            else:
+                                st.error('Não foi possível excluir: existem atividades vinculadas.')
+                if linked_count:
+                    st.info('Esta segmentação possui atividades vinculadas. Para preservar o histórico, utilize Desativar.')
 
     with tab4:
         st.subheader('Filiais / Unidades')
